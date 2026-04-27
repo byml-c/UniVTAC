@@ -85,21 +85,25 @@ class CuroboPlanner:
         self.motion_gen.reset()
 
     def get_curr_world_cfg(self):
-        # obstacles = self.usd_helper.get_obstacles_from_stage(
-        #     only_paths=["/World"],
-        #     reference_prim_path=self.robot_prime_path,
-        #     ignore_substring=['/World/defaultGroundPlane', '/World/visualize/*', self.robot_prime_path]
-        # ).get_collision_check_world()
-        obstacles = {
-            "cuboid": {
-                "table": {
-                    "dims": [0.5, 0, 0],
-                    "pose": [-1000, 0.0, 0.0, 1, 0, 0, 0],
-                },
-            }
-        }
+        obstacles = self.usd_helper.get_obstacles_from_stage(
+            only_paths=["/World"],
+            reference_prim_path='/World/envs/env_0/Robot',
+            ignore_paths=[
+                '/World/visualize',
+                '/World/envs/env_0/Robot',
+                '/World/envs/env_0/ground_plate'
+            ]
+        ).get_collision_check_world()
+        # obstacles = {
+        #     "cuboid": {
+        #         "table": {
+        #             "dims": [0.5, 0, 0],
+        #             "pose": [-1000, 0.0, 0.0, 1, 0, 0, 0],
+        #         },
+        #     }
+        # }
         return obstacles
- 
+
     def update_world(self):
         self.motion_gen.update_world(self.get_curr_world_cfg())
 
@@ -113,7 +117,7 @@ class CuroboPlanner:
         constraint_pose=None,
         time_dilation_factor=None
     ):
-        # self.update_world()
+        self.update_world()
         target_pose = calculate_target_pose(
             real_robot_pose, self.robot_origin_pose, target_ee_pose)
         # transformation from world to arm's base
