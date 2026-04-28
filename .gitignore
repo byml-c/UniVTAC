@@ -53,3 +53,14 @@ textures.zip
 **/act-ckpt/*
 /*.png
 **/tmp.png
+# media
+*.png
+*.mp4
+
+# archives
+*.zip
+
+# build
+third_party/TacEx/source/tacex_uipc/CMake*
+third_party/TacEx/source/tacex_uipc/vcpkg*
+third_party/TacEx/source/tacex_uipc/vcpkg_installed/
