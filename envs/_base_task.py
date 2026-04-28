@@ -175,7 +175,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
         ),
         CameraCfg(
             name="wrist",
-            prim_path="/World/envs/env_.*/Robot/WristCamera/Camera",
+            prim_path="/World/envs/env_.*/Robot/x5a_camera/sensor_camera",
             data_types=["rgb", "depth"],
             spawn=None, # use existing camera
             width=480,
@@ -185,7 +185,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
     ]
 
     robot: RobotCfg = None
-    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'gsmini'
+    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'xensews'
 
     planner_time_dilation_factor: float = 1.0
 
@@ -255,7 +255,7 @@ class BaseTask(UipcRLEnv):
         elif cfg.tactile_sensor_type == 'gf225':
             cfg.robot = create_franka_gf225_gripper(data_type=data_type)
         elif cfg.tactile_sensor_type == 'xensews':
-            cfg.robot = create_franka_xensews_gripper(data_type=data_type)
+            cfg.robot = create_x5a_xensews_gripper(data_type=data_type)
         else:
             raise ValueError(f'Unknown tactile sensor type: {cfg.tactile_sensor_type}')
         

@@ -1,0 +1,41 @@
+urdf_path: "/home/maki/UniVTAC/assets/embodiments/ARX-X5/X5A.urdf"
+# cuRobo arm planning uses the virtual ee link; gripper prismatic joints are controlled outside cuRobo.
+# srdf_path: "./X5A.srdf"
+
+joint_stiffness: 1000
+joint_damping: 200
+
+gripper_stiffnes: 5000
+gripper_damping: 500
+
+# The motion-planning end-effector is now the virtual XenseWS gripper-center link.
+# XenseWS itself is still a mesh embedded inside x5a_adapter_left/right_link.
+move_group: ["x5a_xensews_gripper_center"]
+ee_joints: ["x5a_joint6"]
+arm_joints_name:
+  - ["x5a_joint1", "x5a_joint2", "x5a_joint3", "x5a_joint4", "x5a_joint5", "x5a_joint6"]
+
+gripper_name:
+  - "x5a_adapter_left_mount"
+  - "x5a_adapter_right_mount"
+gripper_bias: 0.0
+gripper_scale: [0.0, 0.02]
+
+homestate:
+  - [0, 0, 0, 0, 0, 0]
+
+delta_matrix: [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
+global_trans_matrix: [[1, 0, 0], [0, -1, 0], [0, 0, -1]] # for curobo
+
+robot_pose: [[0, -0.35, 0.784, 0.707, 0, 0, 0.707]]
+
+planner: "curobo"
+dual_arm: false
+
+grasp_perfect_direction: ["front_right", "front_left"]
+
+static_camera_list:
+  - name: head_camera
+    position: [-0.032, -0.45, 1.35]
+    forward: [0, 0.6, -0.8]
+    left: [-1, 0, 0]

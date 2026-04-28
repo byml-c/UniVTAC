@@ -1,0 +1,12 @@
+{
+    "sim-lift_bottle-demo-5": {
+        "dataset_dir": "./data/sim-lift_bottle/demo-5",
+        "num_episodes": 5,
+        "episode_len": 1000,
+        "camera_names": [
+            "cam_high",
+            "tac_left",
+            "tac_right"
+        ]
+    }
+}

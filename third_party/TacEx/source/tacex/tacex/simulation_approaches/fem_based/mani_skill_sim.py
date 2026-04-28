@@ -235,32 +235,37 @@ class ManiSkillSimulator(GelSightSimulator):
         base_circle_radius = circle_radius * 0.5  # 与原始实现对齐: 1.5 / 3 = 0.5 比例
         blur_k, blur_sigma = (17, 17), 15 
         
-        # patch 尺寸为 4 * circle_radius，用于覆盖 [-2r, 2r] 范围
-        patch_size = 4 * circle_radius
+        # 【关键修复 1】：强制转为 int，并且做兜底，保证 patch_size 至少为 4 像素
+        # 如果从 X5A 读到的是 0.02 米这种小浮点数，强制保底，防止空图
+        patch_size = max(int(4 * circle_radius), 4)
+        
         patch_array = np.zeros(
             (
-                super_resolution_ratio,
-                super_resolution_ratio,
-                size_slot_num,
-                patch_size,
+                int(super_resolution_ratio),
+                int(super_resolution_ratio),
+                int(size_slot_num),
+                patch_size,  # 已经是安全的整数了
                 patch_size,
             ),
             dtype=np.uint8,
         )
+        
         for u in range(super_resolution_ratio):
             for v in range(super_resolution_ratio):
                 for w in range(size_slot_num):
+                    
+                    # 【关键修复 2】：确保高分辨率尺寸至少为 1，防止出现 0x0 矩阵
+                    highres_size = max(int(patch_size * super_resolution_ratio), 1)
+                    
                     # 高分辨率图像用于亚像素渲染
                     img_highres = (
                         np.ones(
-                            (
-                                patch_size * super_resolution_ratio,
-                                patch_size * super_resolution_ratio,
-                            ),
+                            (highres_size, highres_size),
                             dtype=np.uint8,
                         )
                         * 255
                     )
+                    
                     # 圆心在高分辨率图像中心
                     center = np.array(
                         [
@@ -271,18 +276,22 @@ class ManiSkillSimulator(GelSightSimulator):
                     )
                     # 亚像素偏移: u, v 控制圆心的亚像素位置
                     center_offseted = center + np.array([u, v])
-                    # w 控制圆的大小变化
-                    draw_radius = round(base_circle_radius * super_resolution_ratio + w)
+                    
+                    # 【关键修复 3】：圆的半径也必须是明确的整数
+                    draw_radius = int(round(base_circle_radius * super_resolution_ratio + w))
+                    
                     img_highres = cv2.circle(
                         img_highres,
-                        tuple(center_offseted),
+                        tuple(int(x) for x in center_offseted), # 强制确保 tuple 内全是整数
                         draw_radius,
                         (0, 0, 0),
                         thickness=cv2.FILLED,
                         lineType=cv2.LINE_AA,
                     )
+                    
                     img_highres = cv2.GaussianBlur(img_highres, blur_k, blur_sigma)
-                    # 下采样到目标尺寸
+                    
+                    # 下采样到目标尺寸 (此处 patch_size 已确保是整数)
                     img_lowres = cv2.resize(
                         img_highres,
                         (patch_size, patch_size),
@@ -325,16 +334,24 @@ class ManiSkillSimulator(GelSightSimulator):
         patch_size = 4 * circle_radius
         
         marker_image = torch.ones((self.cfg.tactile_img_res[1], self.cfg.tactile_img_res[0]),
-                               dtype=torch.float32, device=device) * 255
+                          dtype=torch.float32, device=device) * 255
+
+        pad_size = int(round(pad_size))
+        patch_size = int(round(patch_size))
+
         marker_image = torch.nn.functional.pad(
-            marker_image, (pad_size, pad_size, pad_size, pad_size), mode='constant', value=255)
-        
+            marker_image,
+            (pad_size, pad_size, pad_size, pad_size),
+            mode='constant',
+            value=255,
+        )
+
         uvs = marker_uv + 0.5 + pad_size
         u_floor = torch.floor(uvs[:, 0]).long()
         v_floor = torch.floor(uvs[:, 1]).long()
         u_frac = uvs[:, 0] - u_floor
         v_frac = uvs[:, 1] - v_floor
-        
+
         patch_id_u = torch.floor(u_frac * super_resolution_ratio).long().clamp(0, super_resolution_ratio - 1)
         patch_id_v = torch.floor(v_frac * super_resolution_ratio).long().clamp(0, super_resolution_ratio - 1)
         marker_size = circle_radius
@@ -342,20 +359,39 @@ class ManiSkillSimulator(GelSightSimulator):
         patch_id_w = max(0, min(patch_id_w, 49))  # clamp to [0, size_slot_num - 1]
 
         patches = ManiSkillSimulator.patch_array[patch_id_u, patch_id_v, patch_id_w, :, :]
-        
-        for i in range(len(patches)):
-            u_start = u_floor[i].item() - pad_size
-            v_start = v_floor[i].item() - pad_size
-            if marker_image.shape[1] - patch_size > u_start >= 0 and marker_image.shape[0] - patch_size > v_start >= 0:
-                replace_idx = (
-                    slice(v_start, v_start + patch_size),
-                    slice(u_start, u_start + patch_size)
-                )
-                old_status = marker_image[replace_idx]
-                new_status = torch.minimum(old_status, patches[i].float())
-                marker_image[replace_idx] = new_status
+        img_h, img_w = marker_image.shape[-2], marker_image.shape[-1]
 
-        marker_image = marker_image[pad_size:-pad_size, pad_size:-pad_size]
+        for i in range(len(patches)):
+            u_start = int(u_floor[i].item() - pad_size)
+            v_start = int(v_floor[i].item() - pad_size)
+
+            patch = patches[i].float()
+            patch_h, patch_w = patch.shape[-2], patch.shape[-1]
+
+            # Clip the marker patch to image bounds. This avoids empty slices
+            # when markers land on the edge of the tactile image.
+            u0 = max(0, u_start)
+            v0 = max(0, v_start)
+            u1 = min(img_w, u_start + patch_w)
+            v1 = min(img_h, v_start + patch_h)
+
+            if u1 <= u0 or v1 <= v0:
+                continue
+
+            pu0 = u0 - u_start
+            pv0 = v0 - v_start
+            pu1 = pu0 + (u1 - u0)
+            pv1 = pv0 + (v1 - v0)
+
+            patch_crop = patch[pv0:pv1, pu0:pu1]
+            old_status = marker_image[v0:v1, u0:u1]
+
+            if old_status.shape != patch_crop.shape:
+                continue
+
+            marker_image[v0:v1, u0:u1] = torch.minimum(old_status, patch_crop)
+        if pad_size > 0:
+            marker_image = marker_image[pad_size:-pad_size, pad_size:-pad_size]
         
         noise_level = 80
         noise = torch.rand_like(marker_image) * noise_level

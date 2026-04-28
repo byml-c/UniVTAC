@@ -276,16 +276,20 @@ class VideoHandler:
         self.close()
         self.video_path.unlink(missing_ok=True)
  
-    def close(self, result:str=None):
-        self.ffmpeg.stdin.close()
-        self.ffmpeg.wait()
-        del self.ffmpeg
+    def close(self, result: str = None):
+        ffmpeg = self.ffmpeg
+        self.ffmpeg = None
+
+        if ffmpeg is not None:
+            if ffmpeg.stdin is not None:
+                ffmpeg.stdin.close()
+            ffmpeg.wait()
 
         # self.stream.stdin.close()
         # self.stream.wait()
         # del self.stream
 
-        if result is not None:
+        if result is not None and hasattr(self, "video_path"):
             new_name = self.video_path.parent / f"{self.video_path.stem}_{result}.mp4"
-            self.video_path.rename(new_name)
-        self.ffmpeg = None
+            if self.video_path.exists():
+                self.video_path.rename(new_name)

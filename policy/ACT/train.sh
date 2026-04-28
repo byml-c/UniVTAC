@@ -16,3 +16,4 @@ python3 imitate_episodes.py \
     --ckpt_dir ./act_ckpt/act-${task_name}/${task_config}-${expert_data_num}/${train_config} \
     --config_path ./${train_config}.yml \
     --seed ${seed}
+

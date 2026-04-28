@@ -220,7 +220,7 @@ def create_tactile_cfg(
     gelpad_attachment_body_name: str,
     gelpad_attachment_prim_path: str = None,
     name: str = "tactile_sensor",
-    sensor_type:Literal['gsmini', 'xensews', 'gf225'] = "gsmini",
+    sensor_type:Literal['gsmini', 'xensews', 'gf225'] = "xensews",
     data_type:list[str] = ["camera_depth", "tactile_rgb"],
 ) -> TactileCfg:
     if sensor_type == "gsmini":

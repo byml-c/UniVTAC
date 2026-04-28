@@ -1,0 +1,1130 @@
+#usda 1.0
+(
+    customLayerData = {
+        dictionary cameraSettings = {
+            dictionary Front = {
+                double3 position = (5, 0, 0)
+                double radius = 5
+            }
+            dictionary Perspective = {
+                double3 position = (0.9114177227660964, 0.09896314971287766, 0.32512711489808893)
+                double3 target = (-1.3205040923634583, -0.24158609127592656, -0.0598665681123291)
+            }
+            dictionary Right = {
+                double3 position = (0, -5, 0)
+                double radius = 5
+            }
+            dictionary Top = {
+                double3 position = (0, 0, 5)
+                double radius = 5
+            }
+            string boundCamera = "/OmniverseKit_Persp"
+        }
+        dictionary metricsAssembler = {
+            dictionary "/Robot/XSense" = {
+            }
+            dictionary "/Robot/XSensePad" = {
+            }
+            dictionary "/Robot/XSenseWS_gelpad_left" = {
+            }
+            dictionary "/Robot/XenseWS_gelpad_left" = {
+            }
+            dictionary "/Robot/d435" = {
+            }
+            dictionary "/Robot/gelpad" = {
+            }
+            int version = 1
+        }
+        dictionary navmeshSettings = {
+            double agentHeight = 180
+            double agentRadius = 20
+            bool excludeRigidBodies = 1
+            int ver = 1
+            double voxelCeiling = 460
+        }
+        dictionary omni_layer = {
+            string authoring_layer = "./uipc_xense_world_fixed.usda"
+            dictionary locked = {
+            }
+            dictionary muteness = {
+            }
+        }
+        dictionary renderSettings = {
+        }
+    }
+    defaultPrim = "Robot"
+    endTimeCode = 100
+    metersPerUnit = 1
+    startTimeCode = 0
+    timeCodesPerSecond = 60
+    upAxis = "Z"
+)
+
+def PhysicsScene "physicsScene" (
+    prepend apiSchemas = ["PhysxSceneAPI"]
+)
+{
+}
+
+def "FlatGrid" (
+    delete apiSchemas = ["PhysicsArticulationRootAPI", "PhysxArticulationAPI"]
+    prepend references = @http://omniverse-content-production.s3-us-west-2.amazonaws.com/Assets/Isaac/2023.1.0/Isaac/Environments/Grid/default_environment.usd@
+)
+{
+    quatf xformOp:orient = (1, 0, 0, 0)
+    float3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (-1.3877787807814457e-17, 0.01218129910085285, -5.440092820663267e-15)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+    over "SphereLight" (
+        active = false
+    )
+    {
+    }
+
+    def DomeLight "DomeLight" (
+        prepend apiSchemas = ["ShapingAPI"]
+    )
+    {
+        float inputs:intensity = 1000
+        float inputs:shaping:cone:angle = 180
+        float inputs:shaping:cone:softness
+        float inputs:shaping:focus
+        color3f inputs:shaping:focusTint
+        asset inputs:shaping:ies:file
+        token inputs:texture:format = "latlong"
+        quatd xformOp:orient = (1, 0, 0, 0)
+        double3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0, 0, 0)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+
+    over "Enviroment"
+    {
+        over "Geometry"
+        {
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (100, 100, 1)
+            double3 xformOp:translate = (-0.425, 0.425, -0.1191072293522371)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+}
+
+def Xform "Robot" (
+    prepend apiSchemas = ["PhysxArticulationAPI"]
+    prepend references = @./X5A/X5A.usda@
+)
+{
+    string isaac:namespace (
+        displayName = "Namespace"
+        doc = "Namespace of the prim in Isaac Sim"
+    )
+    bool physxArticulation:enabledSelfCollisions = 0
+    quatd xformOp:orient = (1, 0, 0, 0)
+    double3 xformOp:scale = (1, 1, 1)
+    double3 xformOp:translate = (0, 0, 0)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+    over "x5a_leftfinger" (
+        active = false
+    )
+    {
+    }
+
+    over "x5a_rightfinger" (
+        active = false
+    )
+    {
+    }
+
+    over "x5a_link6" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.9994308, -0.00919614, -0.03245852, -9.842387e-16)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (0.06114606452428091, 0.0017897573674003388, 0.21685712515768069)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxConvexDecompositionCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexDecomposition"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "x5a_adapter_left_link" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.9994308, -0.00919614, -0.03245852, 2.7105054e-17)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0.14943916276300345, 0.022511144561344364, 0.19089025322331635)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Xform "xense_left_mount" (
+            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsMassAPI"]
+            prepend payload = @../../../Sensors/XenseWS/Case.usd@
+        )
+        {
+            token visibility = "inherited"
+            quatf xformOp:orient = (0.5, 0.5, -0.49999994, 0.50000006)
+            double xformOp:rotateX:unitsResolve = -90
+            float3 xformOp:scale = (0.65, 0.65, 0.65)
+            double3 xformOp:translate = (-0.055756048618834014, -0.023564168286019555, 0.028000000000000996)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+            over "Camera"
+            {
+                float focalLength = 40
+                token visibility = "invisible"
+                quatd xformOp:orient = (-0.4723501134557472, 0.5250130577087251, 0.5188500903901921, 0.4817065945736754)
+                double3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0.0035612448897124893, 0.05614456933030713, -0.19725381873685605)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+                def Camera "sensor_camera"
+                {
+                    float2 clippingRange = (0.01, 1000)
+                    float focalLength = 24
+                    float horizontalAperture = 20.955
+                    float verticalAperture = 15.2908
+                    token visibility = "inherited"
+                }
+            }
+
+            def "XenseWS_gelpad_left" (
+                delete payload = @./X5A/XenseGelpad.usda@
+                prepend payload = @./XenseGelpad.usda@
+            )
+            {
+                token visibility = "inherited"
+                quatf xformOp:orient = (0.27059805, -0.65328145, -0.27059805, -0.6532815)
+                double xformOp:rotateX:unitsResolve = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0.07655874228618118, 0.2217523621511121, -0.2617065806081318)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+                over "mesh"
+                {
+                    quatf xformOp:orient = (0.9141523, -0.4024675, -0.04349257, 0.021302897)
+                    float3 xformOp:scale = (0.8, 0.8, 0.8)
+                    double3 xformOp:translate = (0.06818989562385547, -0.1962334474750394, -0.09259129428498442)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+
+            over "XSenseWS"
+            {
+                token visibility = "inherited"
+                quatf xformOp:orient = (0.27077913, 0.68552464, -0.6378889, -0.22323167)
+                float3 xformOp:scale = (0.01, 0.01, 0.01)
+                double3 xformOp:translate = (-0.015632058815148286, -0.010152290271467874, -0.04790953250515828)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+                over "sensor" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                    quatf xformOp:orient = (0.67096084, -0.33598346, -0.25230184, -0.61095864)
+                    float3 xformOp:scale = (0.8, 0.8, 0.8)
+                    double3 xformOp:translate = (-4.859536131077277, 7.693123656872566, 9.888522124006933)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "visuals"
+        {
+            token visibility = "inherited"
+
+            over "visual_0"
+            {
+                token visibility = "inherited"
+
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                    quatf xformOp:orient = (0.99988997, 0.012217843, -0.006659796, -0.005140007)
+                    float3 xformOp:scale = (0.5, 0.5, 0.5)
+                    double3 xformOp:translate = (28.737127665151377, 37.52034553607831, -7.081820533859695)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "collisions" (
+            active = false
+        )
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                quatf xformOp:orient = (0.707105, 0.70710856, 0, 0)
+                double3 xformOp:scale = (0.001, 0.001, 0.001)
+                double3 xformOp:translate = (0.08270672680640204, 0.010246337452687031, 0.05093432035736453)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                    quatf xformOp:orient = (1, 0, 0, 0)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (-35.77513456114767, 2.5130773640897814, -10.135814817722533)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+    }
+
+    over "x5a_adapter_right_link" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.9994308, -0.00919614, -0.03245852, 2.9056618e-17)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0.14296336522036576, -0.023008045828929163, 0.19406356777863443)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Xform "xense_right_mount" (
+            delete apiSchemas = ["PhysicsRigidBodyAPI", "PhysxRigidBodyAPI", "PhysicsMassAPI"]
+            prepend payload = @../../../Sensors/XenseWS/Case.usd@
+        )
+        {
+            quatf xformOp:orient = (0.50816053, -0.49007127, -0.49474055, -0.50678873)
+            double xformOp:rotateX:unitsResolve = -90
+            float3 xformOp:scale = (0.65, 0.65, 0.65)
+            double3 xformOp:translate = (0.03654860852071706, 0.09106530425919847, 0.028497042814758372)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+            over "Camera"
+            {
+                float focalLength = 40
+                float focusDistance = 0.025
+                token visibility = "invisible"
+                quatd xformOp:orient = (0.5238992611769402, -0.4781055230607606, -0.4769501092207724, -0.5190985130698663)
+                double3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (0.004479220925079963, 0.1548467289730095, 0.06416201203697575)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+                def Camera "sensor_camera"
+                {
+                    float2 clippingRange = (0.01, 1000)
+                    float focalLength = 24
+                    float horizontalAperture = 20.955
+                    float verticalAperture = 15.2908
+                    token visibility = "inherited"
+                    quatf xformOp:orient = (1, 0, 0, 0)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (-0.08525594397036429, -0.22796370348942557, 0.3003656909753586)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+
+                over "OmniverseKitViewportCameraMesh"
+                {
+                    token visibility = "invisible"
+                }
+            }
+
+            over "XSenseWS"
+            {
+                token visibility = "inherited"
+                quatf xformOp:orient = (-0.16180734, 0.7537818, -0.36509252, -0.52186096)
+                float3 xformOp:scale = (0.01, 0.01, 0.01)
+                double3 xformOp:translate = (-0.013750849711499258, -0.007192601286065789, -0.050419978795941595)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+                over "sensor" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                    quatf xformOp:orient = (0.09024353, -0.6279053, -0.44369784, 0.6330271)
+                    float3 xformOp:scale = (0.8, 0.8, 0.8)
+                    double3 xformOp:translate = (-13.103616743629832, 3.9835869729740665, 9.626647444334397)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+
+            def "XenseWS_gelpad_right" (
+                delete payload = @./X5A/XenseGelpad.usda@
+                prepend payload = @./XenseGelpad.usda@
+            )
+            {
+                token visibility = "inherited"
+                quatf xformOp:orient = (0.6532815, 0.27059802, -0.65328145, 0.27059805)
+                double xformOp:rotateX:unitsResolve = 90
+                float3 xformOp:scale = (1, 1, 1)
+                double3 xformOp:translate = (-0.08690746328308965, -0.04689201746590087, 0.08777900197741817)
+                uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale", "xformOp:rotateX:unitsResolve"]
+
+                over "mesh"
+                {
+                    quatf xformOp:orient = (0.92361706, -0.38187456, -0.032212835, 0.008104269)
+                    float3 xformOp:scale = (0.8, 0.8, 0.8)
+                    double3 xformOp:translate = (-0.026764727834191204, -0.17871714938233418, -0.04993907666230171)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                    quatf xformOp:orient = (0.99979556, -2.874483e-16, 0.020219943, -1.0295679e-7)
+                    float3 xformOp:scale = (0.5, 0.5, 0.5)
+                    double3 xformOp:translate = (35.248896614437314, 35.15704982076099, 3.450138405497114)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "collisions" (
+            active = false
+        )
+        {
+        }
+    }
+
+    over "x5a_adapter_link" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.9994308, -0.00919614, -0.03245852, -9.833172e-16)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (0.06114606452428091, 0.0017897573674003388, 0.21685712515768069)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+    }
+
+    over "x5a_camera_base" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (-0.000003998153, 0.032456316, -0.009195364, -0.99943084)
+        float3 xformOp:scale = (1.190082, 1, 0.88847184)
+        double3 xformOp:translate = (0.1288378170795911, 0.0018302480177497457, 0.22125794171656168)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "x5a_camera"
+        {
+            token visibility = "inherited"
+
+            def Camera "wrist_camera_sensor"
+            {
+                float2 clippingRange = (0.01, 1000)
+                float focalLength = 18
+                float horizontalAperture = 20.955
+                float verticalAperture = 15.2908
+                token visibility = "inherited"
+            }
+        }
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "default_______1"
+                {
+                    over "camera_baseSLDPRT"
+                    {
+                        quatf xformOp:orient = (1, 0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1.426331)
+                        double3 xformOp:translate = (0, 0, 0)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                    }
+                }
+            }
+        }
+    }
+
+    over "x5a_link1" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (-1.0164395367051604e-20, 4.0657581468206416e-20, 0.07199995468803808)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "child_0" (
+                    delete apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxConvexHullCollisionAPI"]
+                )
+                {
+                }
+            }
+        }
+    }
+
+    over "x5a_link2"
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (0.023801637913400994, -1.463672932855431e-17, 0.11960323051484015)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "child_0"
+                {
+                    quatf xformOp:orient = (1, 0, 0, 0)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                token visibility = "inherited"
+
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "x5a_link0" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        quatf xformOp:orient = (1, 0, 0, 0)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (-1.0164395367051604e-20, 4.0657581468206416e-20, -6.938893903907228e-18)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+                prepend apiSchemas = ["PhysxConvexDecompositionCollisionAPI"]
+            )
+            {
+                uniform token physics:approximation = "convexDecomposition"
+
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "__MeshLibrary"
+    {
+        over "Geometry_2"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1.190082, 1, 1.190082)
+            double3 xformOp:translate = (-1.0164395367051604e-20, 4.0657581468206416e-20, -6.938893903907228e-18)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "Geometry_3"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1.190082, 1, 1.190082)
+            double3 xformOp:translate = (-1.0164395367051604e-20, 4.0657581468206416e-20, -6.938893903907228e-18)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "Geometry_6"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1.190082, 1, 1.190082)
+            double3 xformOp:translate = (-1.0164395367051604e-20, 4.0657581468206416e-20, -6.938893903907228e-18)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "Geometry_1"
+        {
+            quatf xformOp:orient = (1, 0, 0, 0)
+            float3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    over "x5a_camera" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.9898811, -0.00905485, 0.14160106, -0.0016008904)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0.15790534617215155, 0.005270515215572619, 0.2920886483798233)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "wrist_camera_sensor"
+        {
+            token visibility = "invisible"
+        }
+
+        def Camera "sensor_camera"
+        {
+            float2 clippingRange = (0.01, 0.1)
+            float focalLength = 19.2
+            float horizontalAperture = 16.764
+            float verticalAperture = 12.23264
+            token visibility = "invisible"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "Scene"
+                {
+                    over "_5b3aea852d36660f8dc55aaa012"
+                    {
+                        quatf xformOp:orient = (1, 0, 0, 0)
+                        float3 xformOp:scale = (1, 1, 1)
+                        double3 xformOp:translate = (-0.0012983409102858114, -0.004821648989308286, -0.00015177474015848347)
+                        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                    }
+                }
+            }
+        }
+    }
+
+    def Xform "WristCamera" (
+        prepend apiSchemas = ["PhysicsRigidBodyAPI", "PhysicsMassAPI"]
+    )
+    {
+        point3f physics:centerOfMass = (0, 0, 0)
+        float3 physics:diagonalInertia = (0.000001, 0.000001, 0.000001)
+        float physics:mass = 0.001
+        quatf physics:principalAxes = (1, 0, 0, 0)
+        bool physics:rigidBodyEnabled = 1
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.984805, 6.379029e-7, 0.17366385, -0.0000039999736)
+        float3 xformOp:scale = (1, 1, 1)
+        double3 xformOp:translate = (0.21453546173264262, -0.0009533416923576276, 0.23337592955163486)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        def Camera "Camera"
+        {
+            float2 clippingRange = (0.01, 1000)
+            float focalLength = 19.2
+            float horizontalAperture = 16.764
+            token projection = "perspective"
+            float verticalAperture = 12.23264
+            token visibility = "invisible"
+            quatd xformOp:orient = (1, 0, 0, 0)
+            double3 xformOp:scale = (1, 1, 1)
+            double3 xformOp:translate = (0, 0, 0)
+            uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+        }
+    }
+
+    over "x5a_link3"
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        quatf xformOp:orient = (0.009191501, 0.9994309, 1.2968117e-7, 0.03245628)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (-0.3403242707241028, 0.0008219799453502291, 0.12397329033302881)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "child_0"
+                {
+                    quatf xformOp:orient = (1, 0, 0, 0)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxConvexDecompositionCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexDecomposition"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "x5a_link4"
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.009191501, 0.9994309, 1.2968117e-7, 0.03245628)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (-0.05369210169198536, 0.0022205694477458425, 0.20938199577153088)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0"
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI", "PhysxConvexDecompositionCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexDecomposition"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "x5a_link5" (
+        active = true
+    )
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+        token visibility = "inherited"
+        quatf xformOp:orient = (0.009191501, 0.9994309, 1.2968117e-7, 0.03245628)
+        float3 xformOp:scale = (1.190082, 1, 1.190082)
+        double3 xformOp:translate = (0.020087346932567997, 0.0036603214623973073, 0.31732978644298027)
+        uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+
+        over "visuals"
+        {
+            over "visual_0"
+            {
+                over "child_0"
+                {
+                    quatf xformOp:orient = (1, 0, 0, 0)
+                    float3 xformOp:scale = (1, 1, 1)
+                    double3 xformOp:translate = (0, 0, 0)
+                    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+                }
+            }
+        }
+
+        over "collisions"
+        {
+            token visibility = "invisible"
+
+            over "collision_0" (
+                delete apiSchemas = ["PhysicsCollisionAPI"]
+            )
+            {
+                over "child_0" (
+                    prepend apiSchemas = ["PhysicsCollisionAPI", "PhysxCollisionAPI", "PhysxConvexHullCollisionAPI", "PhysicsMeshCollisionAPI"]
+                )
+                {
+                    uniform token physics:approximation = "convexHull"
+                    bool physics:collisionEnabled = 1
+                }
+            }
+        }
+    }
+
+    over "joints"
+    {
+        def PhysicsFixedJoint "world_to_x5a_link0"
+        {
+            rel physics:body1 = </Robot/x5a_link0>
+            float physics:breakForce = inf
+            float physics:breakTorque = inf
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (0, 0, 0)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+        }
+
+        def PhysicsFixedJoint "x5a_wrist_camera_mount"
+        {
+            rel physics:body0 = </Robot/x5a_camera>
+            rel physics:body1 = </Robot/WristCamera>
+            float physics:breakForce = inf
+            float physics:breakTorque = inf
+            point3f physics:localPos0 = (0, 0, 0)
+            point3f physics:localPos1 = (-0.073297024, 0.0062233903, 0.03580092)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (0.99943084, -0.008640442, -0.032457184, -0.0031451958)
+        }
+
+        over "x5a_joint1" (
+            active = true
+        )
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            float drive:angular:physics:targetVelocity = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link0>
+            rel physics:body1 = </Robot/x5a_link1>
+            point3f physics:localPos0 = (-0.010011171, 0.024419295, 0.065576516)
+            point3f physics:localPos1 = (-0.010011171, 0.024419295, 0.005076518)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_joint2"
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link1>
+            rel physics:body1 = </Robot/x5a_link2>
+            point3f physics:localPos0 = (0.023802, -2.77232e-10, 0.047603)
+            point3f physics:localPos1 = (0.0038020005, -2.7723196e-10, 0.0076030013)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_joint3"
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link2>
+            rel physics:body1 = </Robot/x5a_link3>
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_joint4"
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link3>
+            rel physics:body1 = </Robot/x5a_link4>
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_joint5"
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link4>
+            rel physics:body1 = </Robot/x5a_link5>
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_joint6"
+        {
+            float drive:angular:physics:damping = 50
+            float drive:angular:physics:stiffness = 625
+            float drive:angular:physics:targetPosition = 0
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link5>
+            rel physics:body1 = </Robot/x5a_link6>
+            float physics:lowerLimit = -180
+            float physics:upperLimit = 180
+        }
+
+        over "x5a_hand_to_camera_mount"
+        {
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link6>
+            rel physics:body1 = </Robot/x5a_camera_base>
+        }
+
+        over "x5a_camera_joint"
+        {
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_camera_base>
+            rel physics:body1 = </Robot/x5a_camera>
+        }
+
+        over "x5a_link6_to_adapter"
+        {
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_link6>
+            rel physics:body1 = </Robot/x5a_adapter_link>
+        }
+
+        over "x5a_adapter_left_mount"
+        {
+            float drive:linear:physics:damping = 50
+            float drive:linear:physics:stiffness = 625
+            float drive:linear:physics:targetPosition = 0.04
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_adapter_link>
+            rel physics:body1 = </Robot/x5a_adapter_left_link>
+            point3f physics:localPos0 = (0.099902965, 0.016446717, 0.0007705541)
+            point3f physics:localPos1 = (0.0365325, -0.0057847453, 0.031111969)
+            quatf physics:localRot0 = (1, 0, 0, 0)
+            quatf physics:localRot1 = (1, 0, 0, 0)
+            float physics:upperLimit = 0.04
+        }
+
+        over "x5a_adapter_right_mount"
+        {
+            float drive:linear:physics:damping = 50
+            float drive:linear:physics:stiffness = 625
+            float drive:linear:physics:targetPosition = 0.04
+            string isaac:nameOverride (
+                displayName = "Name Override"
+                doc = "Name override for prim lookup in base name search"
+            )
+            rel physics:body0 = </Robot/x5a_adapter_link>
+            rel physics:body1 = </Robot/x5a_adapter_right_link>
+            point3f physics:localPos0 = (0.10302502, -0.01754367, 0.0067099994)
+            point3f physics:localPos1 = (0.042456966, 0.0067821085, 0.036491264)
+            quatf physics:localRot0 = (6.123234e-17, 1, 0, 0)
+            quatf physics:localRot1 = (9.2807706e-17, 1, -1.0118317e-15, -1.0408341e-17)
+            float physics:upperLimit = 0.04
+        }
+    }
+
+    over "x5a_base_support"
+    {
+        string isaac:nameOverride (
+            displayName = "Name Override"
+            doc = "Name override for prim lookup in base name search"
+        )
+    }
+}
+
+def "Render" (
+    hide_in_stage_window = true
+    no_delete = true
+)
+{
+    def "OmniverseKit"
+    {
+        def "HydraTextures" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            def RenderProduct "omni_kit_widget_viewport_ViewportTexture_0" (
+                prepend apiSchemas = ["OmniRtxSettingsCommonAdvancedAPI_1", "OmniRtxSettingsRtAdvancedAPI_1", "OmniRtxSettingsPtAdvancedAPI_1", "OmniRtxPostColorGradingAPI_1", "OmniRtxPostChromaticAberrationAPI_1", "OmniRtxPostBloomPhysicalAPI_1", "OmniRtxPostMatteObjectAPI_1", "OmniRtxPostCompositingAPI_1", "OmniRtxPostDofAPI_1", "OmniRtxPostMotionBlurAPI_1", "OmniRtxPostTvNoiseAPI_1", "OmniRtxPostTonemapIrayReinhardAPI_1", "OmniRtxPostDebugSettingsAPI_1", "OmniRtxDebugSettingsAPI_1"]
+                hide_in_stage_window = true
+                no_delete = true
+            )
+            {
+                rel camera = </OmniverseKit_Persp>
+                token omni:rtx:background:source:texture:textureMode = "repeatMirrored"
+                token omni:rtx:background:source:type = "domeLight"
+                bool omni:rtx:dlss:frameGeneration = 0
+                bool omni:rtx:material:db:nonVisualMaterialCSV:enabled = 0
+                bool omni:rtx:material:db:syncLoads = 1
+                token omni:rtx:post:dlss:execMode = "performance"
+                bool omni:rtx:post:registeredCompositing:invertColorCorrection = 1
+                bool omni:rtx:post:registeredCompositing:invertToneMap = 1
+                bool omni:rtx:pt:lightcache:cached:dontResolveConflicts = 1
+                int omni:rtx:pt:maxSamplesPerLaunch = 2073600
+                int omni:rtx:pt:mgpu:maxPixelsPerRegionExponent = 12
+                color3f omni:rtx:rt:ambientLight:color = (0.1, 0.1, 0.1)
+                bool omni:rtx:rt:demoire = 0
+                bool omni:rtx:rt:ecoMode:enabled
+                bool omni:rtx:rt:lightcache:spatialCache:dontResolveConflicts = 1
+                bool omni:rtx:scene:hydra:materialSyncLoads = 1
+                bool omni:rtx:scene:hydra:mdlMaterialWarmup = 1
+                uint omni:rtx:viewTile:limit = 4294967295
+                rel orderedVars = </Render/Vars/LdrColor>
+                custom bool overrideClipRange = 0
+                uniform int2 resolution = (1280, 720)
+            }
+        }
+    }
+
+    def RenderSettings "OmniverseGlobalRenderSettings" (
+        prepend apiSchemas = ["OmniRtxSettingsGlobalRtAdvancedAPI_1", "OmniRtxSettingsGlobalPtAdvancedAPI_1"]
+        no_delete = true
+    )
+    {
+        rel products = </Render/OmniverseKit/HydraTextures/omni_kit_widget_viewport_ViewportTexture_0>
+    }
+
+    def "Vars"
+    {
+        def RenderVar "LdrColor" (
+            hide_in_stage_window = true
+            no_delete = true
+        )
+        {
+            uniform string sourceName = "LdrColor"
+        }
+    }
+}
+
+over "child_0"
+{
+    quatf xformOp:orient = (0.99988997, 0.012217843, -0.006659796, -0.005140007)
+    float3 xformOp:scale = (0.5, 0.5, 0.5)
+    double3 xformOp:translate = (28.737127665151377, 37.52034553607831, -7.081820533859695)
+    uniform token[] xformOpOrder = ["xformOp:translate", "xformOp:orient", "xformOp:scale"]
+}
+
