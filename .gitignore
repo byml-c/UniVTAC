@@ -64,3 +64,12 @@ textures.zip
 third_party/TacEx/source/tacex_uipc/CMake*
 third_party/TacEx/source/tacex_uipc/vcpkg*
 third_party/TacEx/source/tacex_uipc/vcpkg_installed/
+
+policy/ACT_UniT
+policy/pi0
+
+replay
+traj*
+.codex
+/*.ipynb
+assets/objects/opt/*
