@@ -17,7 +17,7 @@ import openpi.models.model as _model
 import openpi.models.pi0 as pi0
 import openpi.models.pi0_fast as pi0_fast
 import openpi.models.tokenizer as _tokenizer
-import openpi.policies.aloha_policy as aloha_policy
+import openpi.policies.franka_policy as franka_policy
 import openpi.policies.droid_policy as droid_policy
 import openpi.policies.libero_policy as libero_policy
 import openpi.shared.download as _download
@@ -192,22 +192,25 @@ class SimpleDataConfig(DataConfigFactory):
 
 
 @dataclasses.dataclass(frozen=False)
-class LeRobotAlohaDataConfig(DataConfigFactory):
+class LeRobotFrankaDataConfig(DataConfigFactory):
     # If true, will convert joint dimensions to deltas with respect to the current state before passing to the model.
     # Gripper dimensions will remain in absolute values.
     use_delta_joint_actions: bool = True
     # If provided, will be injected into the input data if the "prompt" key is not present.
     default_prompt: str | None = None
-    # If true, this will convert the joint and gripper values from the standard Aloha space to
+    # If true, this will convert the joint and gripper values from the standard Franka space to
     # the space used by the pi internal runtime which was used to train the base model. People who
-    # use standard Aloha data should set this to true.
+    # use standard Franka data should set this to true.
     adapt_to_pi: bool = False
 
     # Repack transforms.
     repack_transforms: tyro.conf.Suppress[_transforms.Group] = dataclasses.field(default=_transforms.Group(inputs=[
         _transforms.RepackTransform({
             "images": {
-                "cam_high": "observation.images.top"
+                "cam_head": "observation.images.head",
+                "cam_wrist": "observation.images.wrist",
+                "tactile_left": "observation.images.left_tactile",
+                "tactile_right": "observation.images.right_tactile",
             },
             "state": "observation.state",
             "actions": "action",
@@ -219,11 +222,11 @@ class LeRobotAlohaDataConfig(DataConfigFactory):
     @override
     def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
         data_transforms = _transforms.Group(
-            inputs=[aloha_policy.AlohaInputs(action_dim=model_config.action_dim, adapt_to_pi=self.adapt_to_pi)],
-            outputs=[aloha_policy.AlohaOutputs(adapt_to_pi=self.adapt_to_pi)],
+            inputs=[franka_policy.FrankaInputs(action_dim=model_config.action_dim, adapt_to_pi=self.adapt_to_pi)],
+            outputs=[franka_policy.FrankaOutputs(adapt_to_pi=self.adapt_to_pi)],
         )
         if self.use_delta_joint_actions:
-            delta_action_mask = _transforms.make_bool_mask(6, -1, 6, -1)
+            delta_action_mask = _transforms.make_bool_mask(7, -1)
             data_transforms = data_transforms.push(
                 inputs=[_transforms.DeltaActions(delta_action_mask)],
                 outputs=[_transforms.AbsoluteActions(delta_action_mask)],
@@ -380,17 +383,18 @@ _CONFIGS = [
     ###
     # pi0_base by lora
     TrainConfig(
-        name="pi0_base_aloha_robotwin_lora",
+        name="pi0_base_franka_univtac_lora",
         model=pi0.Pi0Config(paligemma_variant="gemma_2b_lora", action_expert_variant="gemma_300m_lora"),
-        data=LeRobotAlohaDataConfig(
+        data=LeRobotFrankaDataConfig(
             repo_id="test",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
                     "images": {
-                        "cam_high": "observation.images.cam_high",
-                        "cam_left_wrist": "observation.images.cam_left_wrist",
-                        "cam_right_wrist": "observation.images.cam_right_wrist",
+                        "cam_head": "observation.images.cam_head",
+                        # "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
                     },
                     "state": "observation.state",
                     "actions": "action",
@@ -411,17 +415,18 @@ _CONFIGS = [
     ),
     # pi0_fast_base by lora
     TrainConfig(
-        name="pi0_fast_aloha_robotwin_lora",
+        name="pi0_fast_franka_univtac_lora",
         model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
-        data=LeRobotAlohaDataConfig(
-            repo_id="your_repo_id",  # your datasets repo_id
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/lift_bottle-clean-2",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
                     "images": {
-                        "cam_high": "observation.images.cam_high",
-                        "cam_left_wrist": "observation.images.cam_left_wrist",
-                        "cam_right_wrist": "observation.images.cam_right_wrist",
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        "tactile_left": "observation.images.tactile_left",
+                        "tactile_right": "observation.images.tactile_right",
                     },
                     "state": "observation.state",
                     "actions": "action",
@@ -439,21 +444,22 @@ _CONFIGS = [
         batch_size=32,
         weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
         num_train_steps=30000,
-        fsdp_devices=2,  # refer line 359
+        fsdp_devices=1,  # refer line 359
     ),
     # pi0_base by full
     TrainConfig(
-        name="pi0_base_aloha_robotwin_full",
+        name="pi0_base_franka_univtac_full",
         model=pi0.Pi0Config(),
-        data=LeRobotAlohaDataConfig(
+        data=LeRobotFrankaDataConfig(
             repo_id="your_repo_id",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
                     "images": {
-                        "cam_high": "observation.images.cam_high",
-                        "cam_left_wrist": "observation.images.cam_left_wrist",
-                        "cam_right_wrist": "observation.images.cam_right_wrist",
+                        "cam_head": "observation.images.cam_head",
+                        # "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
                     },
                     "state": "observation.state",
                     "actions": "action",
@@ -473,17 +479,18 @@ _CONFIGS = [
     ),
     # pi0_fast_base by full
     TrainConfig(
-        name="pi0_fast_aloha_robotwin_full",
+        name="pi0_fast_franka_univtac_full",
         model=pi0_fast.Pi0FASTConfig(),
-        data=LeRobotAlohaDataConfig(
+        data=LeRobotFrankaDataConfig(
             repo_id="your_repo_id",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
                     "images": {
-                        "cam_high": "observation.images.cam_high",
-                        "cam_left_wrist": "observation.images.cam_left_wrist",
-                        "cam_right_wrist": "observation.images.cam_right_wrist",
+                        "cam_head": "observation.images.cam_head",
+                        # "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
                     },
                     "state": "observation.state",
                     "actions": "action",

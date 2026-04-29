@@ -7,50 +7,50 @@ import numpy as np
 from openpi import transforms
 
 
-def make_aloha_example() -> dict:
-    """Creates a random input example for the Aloha policy."""
+def make_franka_example() -> dict:
+    """Creates a random input example for the Franka policy."""
     return {
         "state": np.ones((14, )),
         "images": {
             "cam_high": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
-            "cam_low": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
-            "cam_left_wrist": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
-            "cam_right_wrist": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
+            "cam_wrist": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
+            "left_tactile": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
+            "right_tactile": np.random.randint(256, size=(3, 224, 224), dtype=np.uint8),
         },
         "prompt": "do something",
     }
 
 
 @dataclasses.dataclass(frozen=True)
-class AlohaInputs(transforms.DataTransformFn):
-    """Inputs for the Aloha policy.
+class FrankaInputs(transforms.DataTransformFn):
+    """Inputs for the Franka policy.
 
     Expected inputs:
     - images: dict[name, img] where img is [channel, height, width]. name must be in EXPECTED_CAMERAS.
-    - state: [14]
-    - actions: [action_horizon, 14]
+    - state: [8]
+    - actions: [action_horizon, 8]
     """
 
     # The action dimension of the model. Will be used to pad state and actions.
     action_dim: int
 
-    # If true, this will convert the joint and gripper values from the standard Aloha space to
+    # If true, this will convert the joint and gripper values from the standard Franka space to
     # the space used by the pi internal runtime which was used to train the base model.
     adapt_to_pi: bool = True
 
     # The expected cameras names. All input cameras must be in this set. Missing cameras will be
     # replaced with black images and the corresponding `image_mask` will be set to False.
     EXPECTED_CAMERAS: ClassVar[tuple[str, ...]] = (
-        "cam_high",
-        "cam_low",
-        "cam_left_wrist",
-        "cam_right_wrist",
+        "cam_head",
+        "cam_wrist",
+        "tactile_left",
+        "tactile_right",
     )
 
     def __call__(self, data: dict) -> dict:
-        data = _decode_aloha(data, adapt_to_pi=self.adapt_to_pi)
+        data = _decode_franka(data, adapt_to_pi=self.adapt_to_pi)
 
-        # Get the state. We are padding from 14 to the model action dim.
+        # Get the state. We are padding from 8 to the model action dim.
         state = transforms.pad_to_dim(data["state"], self.action_dim)
 
         in_images = data["images"]
@@ -58,7 +58,7 @@ class AlohaInputs(transforms.DataTransformFn):
             raise ValueError(f"Expected images to contain {self.EXPECTED_CAMERAS}, got {tuple(in_images)}")
 
         # Assume that base image always exists.
-        base_image = in_images["cam_high"]
+        base_image = in_images["cam_head"]
 
         images = {
             "base_0_rgb": base_image,
@@ -69,8 +69,8 @@ class AlohaInputs(transforms.DataTransformFn):
 
         # Add the extra images.
         extra_image_names = {
-            "left_wrist_0_rgb": "cam_left_wrist",
-            "right_wrist_0_rgb": "cam_right_wrist",
+            "left_wrist_0_rgb": "tactile_left",
+            "right_wrist_0_rgb": "tactile_right",
         }
         for dest, source in extra_image_names.items():
             if source in in_images:
@@ -99,22 +99,22 @@ class AlohaInputs(transforms.DataTransformFn):
 
 
 @dataclasses.dataclass(frozen=True)
-class AlohaOutputs(transforms.DataTransformFn):
-    """Outputs for the Aloha policy."""
+class FrankaOutputs(transforms.DataTransformFn):
+    """Outputs for the Franka policy."""
 
-    # If true, this will convert the joint and gripper values from the standard Aloha space to
+    # If true, this will convert the joint and gripper values from the standard Franka space to
     # the space used by the pi internal runtime which was used to train the base model.
     adapt_to_pi: bool = True
 
     def __call__(self, data: dict) -> dict:
-        # Only return the first 14 dims.
-        actions = np.asarray(data["actions"][:, :14])
+        # Only return the first 8 dims.
+        actions = np.asarray(data["actions"][:, :8])
         return {"actions": _encode_actions(actions, adapt_to_pi=self.adapt_to_pi)}
 
 
 def _joint_flip_mask() -> np.ndarray:
-    """Used to convert between aloha and pi joint angles."""
-    return np.array([1, -1, -1, 1, 1, 1, 1, 1, -1, -1, 1, 1, 1, 1])
+    """Used to convert between franka and pi joint angles."""
+    return np.array([1, 1, 1, 1, 1, 1, 1, 1])
 
 
 def _normalize(x, min_val, max_val):
@@ -126,11 +126,11 @@ def _unnormalize(x, min_val, max_val):
 
 
 def _gripper_to_angular(value):
-    # Aloha transforms the gripper positions into a linear space. The following code
+    # Franka transforms the gripper positions into a linear space. The following code
     # reverses this transformation to be consistent with pi0 which is pretrained in
     # angular space.
     #
-    # These values are coming from the Aloha code:
+    # These values are coming from the Franka code:
     # PUPPET_GRIPPER_POSITION_OPEN, PUPPET_GRIPPER_POSITION_CLOSED
     value = _unnormalize(value, min_val=0.01844, max_val=0.05800)
 
@@ -148,13 +148,13 @@ def _gripper_to_angular(value):
 
 
 def _gripper_from_angular(value):
-    # Convert from the gripper position used by pi0 to the gripper position that is used by Aloha.
+    # Convert from the gripper position used by pi0 to the gripper position that is used by Franka.
     # Note that the units are still angular but the range is different.
 
     # The values 0.4 and 1.5 were measured on an actual Trossen robot.
     value = _unnormalize(value, min_val=0.4, max_val=1.5)
 
-    # These values are coming from the Aloha code:
+    # These values are coming from the Franka code:
     # PUPPET_GRIPPER_JOINT_OPEN, PUPPET_GRIPPER_JOINT_CLOSE
     return _normalize(value, min_val=-0.6213, max_val=1.4910)
 
@@ -165,7 +165,7 @@ def _gripper_from_angular_inv(value):
     return _normalize(value, min_val=0.4, max_val=1.5)
 
 
-def _decode_aloha(data: dict, *, adapt_to_pi: bool = False) -> dict:
+def _decode_franka(data: dict, *, adapt_to_pi: bool = False) -> dict:
     # state is [left_arm_joint_angles, right_arm_joint_angles, left_arm_gripper, right_arm_gripper]
     # dim sizes: [6, 1, 6, 1]
     state = np.asarray(data["state"])
@@ -191,8 +191,8 @@ def _decode_state(state: np.ndarray, *, adapt_to_pi: bool = False) -> np.ndarray
     if adapt_to_pi:
         # Flip the joints.
         state = _joint_flip_mask() * state
-        # Reverse the gripper transformation that is being applied by the Aloha runtime.
-        state[[6, 13]] = _gripper_to_angular(state[[6, 13]])
+        # Reverse the gripper transformation that is being applied by the Franka runtime.
+        state[[7]] = _gripper_to_angular(state[[7]])
     return state
 
 
@@ -200,12 +200,12 @@ def _encode_actions(actions: np.ndarray, *, adapt_to_pi: bool = False) -> np.nda
     if adapt_to_pi:
         # Flip the joints.
         actions = _joint_flip_mask() * actions
-        actions[:, [6, 13]] = _gripper_from_angular(actions[:, [6, 13]])
+        actions[:, [7]] = _gripper_from_angular(actions[:, [7]])
     return actions
 
 
 def _encode_actions_inv(actions: np.ndarray, *, adapt_to_pi: bool = False) -> np.ndarray:
     if adapt_to_pi:
         actions = _joint_flip_mask() * actions
-        actions[:, [6, 13]] = _gripper_from_angular_inv(actions[:, [6, 13]])
+        actions[:, [7]] = _gripper_from_angular_inv(actions[:, [7]])
     return actions

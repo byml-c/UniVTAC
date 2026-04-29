@@ -20,3 +20,5 @@ policy/ACT_UniT
 /.codex
 /third_party
 !/third_party/TacEx
+
+/assets/embodiments/ARX-X5

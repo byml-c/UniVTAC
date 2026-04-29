@@ -5,6 +5,8 @@ will compute the mean and standard deviation of the data in the dataset and save
 to the config assets directory.
 """
 
+import dataclasses
+
 import numpy as np
 import tqdm
 import tyro
@@ -21,8 +23,15 @@ class RemoveStrings(transforms.DataTransformFn):
         return {k: v for k, v in x.items() if not np.issubdtype(np.asarray(v).dtype, np.str_)}
 
 
-def create_dataset(config: _config.TrainConfig, ) -> tuple[_config.DataConfig, _data_loader.Dataset]:
+def create_dataset(
+    config: _config.TrainConfig,
+    *,
+    repo_id: str | None = None,
+    asset_id: str | None = None,
+) -> tuple[_config.DataConfig, _data_loader.Dataset]:
     data_config = config.data.create(config.assets_dirs, config.model)
+    if repo_id is not None:
+        data_config = dataclasses.replace(data_config, repo_id=repo_id, asset_id=asset_id or repo_id)
     if data_config.repo_id is None:
         raise ValueError("Data config must have a repo_id")
     dataset = _data_loader.create_dataset(data_config, config.model)
@@ -38,9 +47,15 @@ def create_dataset(config: _config.TrainConfig, ) -> tuple[_config.DataConfig, _
     return data_config, dataset
 
 
-def main(config_name: str, max_frames: int | None = None):
+def compute_and_save(
+    config_name: str,
+    max_frames: int | None = None,
+    *,
+    repo_id: str | None = None,
+    asset_id: str | None = None,
+):
     config = _config.get_config(config_name)
-    data_config, dataset = create_dataset(config)
+    data_config, dataset = create_dataset(config, repo_id=repo_id, asset_id=asset_id)
 
     num_frames = len(dataset)
     shuffle = False
@@ -67,9 +82,19 @@ def main(config_name: str, max_frames: int | None = None):
 
     norm_stats = {key: stats.get_statistics() for key, stats in stats.items()}
 
-    output_path = config.assets_dirs / data_config.repo_id
+    output_path = config.assets_dirs / (data_config.asset_id or data_config.repo_id)
     print(f"Writing stats to: {output_path}")
     normalize.save(output_path, norm_stats)
+    return output_path
+
+
+def main(
+    config_name: str,
+    max_frames: int | None = None,
+    repo_id: str | None = None,
+    asset_id: str | None = None,
+):
+    compute_and_save(config_name, max_frames=max_frames, repo_id=repo_id, asset_id=asset_id)
 
 
 if __name__ == "__main__":
