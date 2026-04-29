@@ -34,9 +34,6 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
     ),
     
     init_state=ArticulationCfg.InitialStateCfg(
-        pos=(0.0, 0.0, 0.00),
-        rot=(1.0, 0.0, 0.0, 0.0),
-        
         joint_pos={
             "x5a_joint1": 0.0,
             "x5a_joint2": 0.0,

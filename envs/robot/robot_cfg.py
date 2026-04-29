@@ -163,19 +163,19 @@ def create_x5a_xensews_gripper(data_type: list[str]):
 
     tactiles = [
         create_tactile_cfg(
-            prim_path="/World/envs/env_.*/Robot/x5a_adapter_left_link/xense_left_mount",
-            gelpad_prim_path="/World/envs/env_.*/Robot/x5a_adapter_left_link/xense_left_mount/XenseWS_gelpad_left",
-            gelpad_attachment_body_name="x5a_adapter_left_link",
-            gelpad_attachment_prim_path="/World/envs/env_.*/Robot/x5a_adapter_left_link",
+            prim_path="/World/envs/env_.*/Robot/xense_left_mount",
+            gelpad_prim_path="/World/envs/env_.*/Robot/xense_left_mount/XenseWS_gelpad_left",
+            gelpad_attachment_body_name="xense_left_mount",
+            gelpad_attachment_prim_path="/World/envs/env_.*/Robot/xense_left_mount",
             name="left_tactile",
             sensor_type="xensews",
             data_type=data_type,
         ),
         create_tactile_cfg(
-            prim_path="/World/envs/env_.*/Robot/x5a_adapter_right_link/xense_right_mount",
-            gelpad_prim_path="/World/envs/env_.*/Robot/x5a_adapter_right_link/xense_right_mount/XenseWS_gelpad_right",
-            gelpad_attachment_body_name="x5a_adapter_right_link",
-            gelpad_attachment_prim_path="/World/envs/env_.*/Robot/x5a_adapter_right_link",
+            prim_path="/World/envs/env_.*/Robot/xense_right_mount",
+            gelpad_prim_path="/World/envs/env_.*/Robot/xense_right_mount/XenseWS_gelpad_right",
+            gelpad_attachment_body_name="xense_right_mount",
+            gelpad_attachment_prim_path="/World/envs/env_.*/Robot/xense_right_mount",
             name="right_tactile",
             sensor_type="xensews",
             data_type=data_type,
