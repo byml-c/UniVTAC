@@ -65,12 +65,12 @@ def log(msg):
         f.write(msg + '\n')
     print(msg)
 
-def replay(task: 'BaseTask', seed, data_root:Path):
+def replay(task: 'BaseTask', seed, data_path:Path):
     eval_start = time.perf_counter()
     task.reset(seed=seed)
 
     succ = False
-    traj_data = HDF5Handler().load_hdf5(data_root / f'{seed}.hdf5')
+    traj_data = HDF5Handler().load_hdf5(data_path)
     qpos_list = torch.from_numpy(traj_data['embodiment']['joint'][:, :8]).to(device=task.device)
     # vel_list = torch.from_numpy(traj_data['embodiment']['vel'][:, :8]).to(device=task.device)
     ee_list = torch.from_numpy(traj_data['embodiment']['ee'][:, :3]).to(device=task.device)
@@ -100,6 +100,11 @@ def replay(task: 'BaseTask', seed, data_root:Path):
             'result_ee': observation['embodiment']['ee'][:3].cpu().tolist(),
         })
     
+    for _ in range(50):
+        exec_succ, eval_succ = task.take_action(action, action_type='qpos', force=True)
+        if eval_succ:
+            break
+ 
     seed_root = task.save_root / 'replay_traj'
     seed_root.mkdir(parents=True, exist_ok=True)
     with open(seed_root / f'{seed}.json', 'w') as f:
@@ -113,11 +118,11 @@ def replay(task: 'BaseTask', seed, data_root:Path):
     task.clean_cache(result=succ_status)
     return succ_status, eval_cost
 
-def replay_seeds(task: 'BaseTask', seeds:list, data_root:Path):
+def replay_seeds(task: 'BaseTask', data):
     test_num, succ_num = 0, 0
-    for seed in seeds:
+    for seed, data_path in data:
         test_num += 1
-        result, eval_cost = replay(task, seed, data_root)
+        result, eval_cost = replay(task, seed, data_path)
         succ_num += 1 if result == 'success' else 0
         log(f"[{test_num:<3d}] Seed {seed} {result} after {eval_cost:.2f} s.\n"
         f"steps: {task.step_count:<5d}, actions: {task.take_action_cnt:<5d}.\n"
@@ -183,11 +188,26 @@ def main():
     log(f"Task Config: {task_config_file.absolute()}") 
     log(f"Task init finish in {task_init_cost:.2f} seconds.")
     
-    data_root = Path(__file__).parent.parent / 'data' / task_config_name / task_file_name / 'hdf5'
-    seeds = sorted([int(p.stem) for p in data_root.glob('*.hdf5')])
-    log(f"Start replaying {len(seeds)} seeds from {data_root}.")
+    data_root = Path(__file__).parent.parent / 'data' / task_file_name / task_config_name
+    if (data_root / 'hdf5').exists():
+        print(f"Found hdf5 data in {data_root / 'hdf5'}, start replaying.")
+        # self collect data
+        data_root = data_root / 'hdf5'
+        data = sorted([(int(p.stem), p) for p in data_root.glob('*.hdf5')], key=lambda x: x[0])
+    else:
+        print(f"Found downloaded data in {data_root}, start replaying.")
+        # dataset
+        metadata_file = data_root / 'metadata.json'
+        with open(metadata_file, 'r') as f:
+            metadata = json.load(f)
+        data = []
+        for k, v in metadata.items():
+            if (data_root / f'{k}.hdf5').exists() and 'seed' in v:
+                data.append((int(v['seed']), data_root / f'{k}.hdf5'))
+ 
+    log(f"Start replaying {len(data)} seeds from {data_root}.")
 
-    results = replay_seeds(task, seeds=seeds, data_root=data_root)
+    results = replay_seeds(task, data=data)
     log(f"Final Result: {results['succ_num']}/{results['test_num']}({results['succ_num']/results['test_num']*100:.2f}%) success.")
     
     task.close()

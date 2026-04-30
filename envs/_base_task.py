@@ -479,19 +479,19 @@ class BaseTask(UipcRLEnv):
     def get_frame_shot(self, obs):
         head_obs = obs['observation']['head']['rgb'].clone()
         wrist_obs = obs['observation']['wrist']['rgb'].clone()
-        tac_size = 240
+        tac_size = 160
         left_tac = torchvision.transforms.Resize((tac_size, tac_size))(
             obs['tactile']['left_tactile']['rgb_marker'].clone().permute(2, 0, 1)).permute(1, 2, 0)
         right_tac = torchvision.transforms.Resize((tac_size, tac_size))(
             obs['tactile']['right_tactile']['rgb_marker'].clone().permute(2, 0, 1)).permute(1, 2, 0)
 
-        img = torch.zeros((320, 480*2, 3), dtype=head_obs.dtype)
+        img = torch.zeros((320, 480*2+160, 3), dtype=head_obs.dtype)
         img[:, :480, :] = torchvision.transforms.Resize(
             (320, 480))(head_obs.permute(2, 0, 1)).permute(1, 2, 0)
-        img[:, 480:, :] = torchvision.transforms.Resize(
+        img[:, 480:480*2, :] = torchvision.transforms.Resize(
             (320, 480))(wrist_obs.permute(2, 0, 1)).permute(1, 2, 0)
-        img[:tac_size, :tac_size, :] = left_tac
-        img[:tac_size, -tac_size:, :] = right_tac
+        img[:tac_size, 480*2:, :] = left_tac
+        img[tac_size:, 480*2:, :] = right_tac
         return img
 
     @staticmethod
