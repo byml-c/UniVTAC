@@ -56,8 +56,10 @@ class Policy(BasePolicy):
             }
         """
         def preprocess_image(img):
-            img = transforms.Resize((256, 256))(img.permute(2, 0, 1))  # HWC -> CHW
-            img = img / 255.0  # Normalize to [0, 1]
+            # img = transforms.Resize((256, 256))(img.permute(2, 0, 1))  # HWC -> CHW
+            # img = img / 255.0  # Normalize to [0, 1]
+            img = transforms.Resize((256, 256))
+            return img
 
         input_images = {}
         for cam in self.visual_cameras:
