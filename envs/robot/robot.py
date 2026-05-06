@@ -1,6 +1,7 @@
 import yaml
 import numpy as np
 import torch
+import transforms3d as t3d
 
 import isaaclab.sim as sim_utils
 import isaaclab.utils.math as math_utils
@@ -28,8 +29,13 @@ class RobotManager:
         self.task = task
         self.device = task.device
         self.sensor_type = task.cfg.tactile_sensor_type
-        if self.sensor_type in ['gsmini', 'gf225', 'xensews']: # franka panda
+
+        if self.sensor_type in ['gsmini', 'gf225']: # franka panda
             self.robot_type = 'franka_panda'
+        elif self.sensor_type == 'xensews': # ARX-X5
+            self.robot_type = 'x5a'
+        else:
+            raise NotImplementedError(f"Sensor type {self.sensor_type} not implemented.")
 
         self.robot = Articulation(self.cfg.robot)
         self.task.scene.articulations['robot'] = self.robot
@@ -51,14 +57,76 @@ class RobotManager:
             self.gripper_max_qpos = self.cfg.gripper_max_qpos
             self.yaml_path = str(EMBODIMENTS_ROOT / 'franka' / 'curobo.yml')
             offset = self.cfg.gripper_offset
+        elif self.robot_type == 'x5a':
+            self.hand_name = 'x5a_link6'
+                
+            self._arm_joint_names = [
+                'x5a_joint1', 'x5a_joint2', 'x5a_joint3', 
+                'x5a_joint4', 'x5a_joint5', 'x5a_joint6'
+            ]
+            # X5A + XenseWS current asset uses the two adapter mount joints
+            # as prismatic gripper joints. Their URDF/USD names must match exactly.
+            self._gripper_joint_names = [
+                'x5a_adapter_left_mount',
+                'x5a_adapter_right_mount',
+            ]
+            self.gripper_max_qpos = getattr(self.cfg, 'gripper_max_qpos', 0.02)
+            # 【注意】: 确保你在 EMBODIMENTS_ROOT/ARX-X5/ 目录下有一个配置好的 curobo.yml
+            self.yaml_path = str(EMBODIMENTS_ROOT / 'ARX-X5' / 'curobo.yml') 
+            offset = self.cfg.gripper_offset
+            
         else:
             raise NotImplementedError(f"Robot type {self.robot_type} not implemented.")
- 
-        # offset from end-effector to gripper center frame
-        self._offset = Pose(p=[0, 0, -offset], q=[1, 0, 0, 0])
-        self._offset_pos = torch.tensor([0.0, 0.0, offset], device=self.device).repeat(self.task.num_envs, 1)
-        self._offset_rot = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(self.task.num_envs, 1)
 
+        if self.robot_type == 'x5a':
+            q_offset = [1, 0, 0, 0]
+            self._offset = Pose(
+                p = [-0.127, -0.0005, -0.055],
+                q=q_offset,
+            )
+            self._offset_pos = torch.tensor(
+                [-0.127, -0.0005, -0.055],
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+            self._offset_rot = torch.tensor(
+                q_offset,
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+
+        else:
+            # 原来的 Franka / 默认逻辑
+            self._offset = Pose(p=[0, 0, -offset], q=[1, 0, 0, 0])
+            self._offset_pos = torch.tensor(
+                [0.0, 0.0, offset],
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+            self._offset_rot = torch.tensor(
+                [1.0, 0.0, 0.0, 0.0],
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+
+    def adapt_grasp_tcp_pose_for_robot(self, tcp_pose: Pose) -> Pose:
+        if self.robot_type != "x5a":
+            return tcp_pose
+
+        x5a_grasp_frame_fix = Pose(
+            p=[0.0, 0.0, 0.0],
+            q=[0.7071, 0.0, 0.7071, 0.0],
+        )
+        tcp_pose = tcp_pose.add_offset(x5a_grasp_frame_fix)
+
+        mat = tcp_pose.to_transformation_matrix()
+        R = mat[:3, :3].copy()
+        R[:, 1] *= -1.0
+        R[:, 2] *= -1.0
+
+        tcp_pose = Pose(
+            p=tcp_pose.p,
+            q=t3d.quaternions.mat2quat(R),
+        )
+
+        return tcp_pose
+    
     def setup(self):
         """设置机器人属性"""
         body_ids, body_names = self.robot.find_bodies(self.hand_name)

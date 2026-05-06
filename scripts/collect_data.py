@@ -125,6 +125,36 @@ def run(task: 'BaseTask', episode_num, use_seed, start_seed, max_seed):
             start_t = time.perf_counter()
             task.reset(seed=seed)
             task.play_once()
+
+            print("\n" + "=" * 80)
+            print("[DEBUG AFTER play_once]")
+            print("plan_success:", getattr(task, "plan_success", None))
+
+            try:
+                print("success:", task.check_success())
+            except Exception as e:
+                print("success check error:", repr(e))
+
+            try:
+                print("early_stop:", task.check_early_stop())
+            except Exception as e:
+                print("early_stop check error:", repr(e))
+
+            try:
+                print("object pose:", task.object.get_world_pose())
+            except Exception as e:
+                print("object pose error:", repr(e))
+
+            try:
+                if hasattr(task, "robot") and hasattr(task.robot, "get_end_effector_pose"):
+                    print("robot ee pose:", task.robot.get_end_effector_pose())
+                else:
+                    print("robot ee pose: task.robot.get_end_effector_pose() not found")    
+            except Exception as e:
+                    print("robot ee pose error:", repr(e))
+
+            print("=" * 80 + "\n")
+
             cost_t = time.perf_counter() - start_t
         except Exception as e:
             log(f"[{suc_num:<3d}] Seed {seed} failed with error: {traceback.format_exc()}")

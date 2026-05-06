@@ -13,7 +13,6 @@ from isaaclab.actuators import ImplicitActuatorCfg
 from isaaclab.assets import ArticulationCfg
 
 from tacex_assets import TACEX_ASSETS_DATA_DIR
-
 ##
 # Configuration
 ##
@@ -51,14 +50,14 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
             joint_names_expr=["x5a_joint[1-3]"],
             effort_limit_sim=100.0,
             velocity_limit_sim=1000.0,
-            stiffness=1000.0,
-            damping=200.0,
+            stiffness=625.0,
+            damping=50.0,
         ),
         "x5a_forearm": ImplicitActuatorCfg(
             joint_names_expr=["x5a_joint[4-6]"],
             effort_limit_sim=100.0,
             velocity_limit_sim=1000.0,
-            stiffness=1000.0,
+            stiffness=625.0,
             damping=200.0,
         ),
         "x5a_gripper": ImplicitActuatorCfg(
@@ -68,8 +67,8 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
             ],
             effort_limit_sim=1000.0,
             velocity_limit_sim=0.2,
-            stiffness=5000.0,
-            damping=500.0,
+            stiffness=625.0,
+            damping=50.0,
         ),
     },
     soft_joint_pos_limit_factor=1.0,

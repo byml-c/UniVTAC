@@ -98,8 +98,16 @@ class Atom:
         """
         if not self.task.plan_success:
             return None
-        
-        res_pose = actor.get_point('contact', contact_point_id, 'pose').add_bias([0, 0, -pre_dis])
+         # 1. Get task-level contact/TCP pose.
+        res_pose = actor.get_point('contact', contact_point_id, 'pose')
+
+        # 2. Convert grasp TCP pose for robot-specific gripper frame.
+        #    For X5A this applies the grasp frame fix; for Franka it returns unchanged.
+        res_pose = self.robot.adapt_grasp_tcp_pose_for_robot(res_pose)
+
+        # 3. Apply pre-grasp displacement after frame adaptation.
+        res_pose = res_pose.add_bias([0, 0, -pre_dis])
+
         return res_pose
     
     def choose_grasp_pose(
@@ -189,9 +197,14 @@ class Atom:
             target_dis=dis,
             contact_point_id=contact_point_id,
         )
+        T_world_tcp = grasp_pose.to_transformation_matrix()
+        # 这里 grasp_pose 还是 TCP / gripper center target
         pre_grasp_pose = self.robot.gripper_center_to_ee(pre_grasp_pose)
         grasp_pose = self.robot.gripper_center_to_ee(grasp_pose)
-
+        # 这里 grasp_pose 已经变成 cuRobo / ee_link target
+        T_world_ee = grasp_pose.to_transformation_matrix()
+        # 反推 ee -> tcp，看看 offset 实际效果
+        T_ee_tcp = np.linalg.inv(T_world_ee) @ T_world_tcp
         actions = [Action("move", target_pose=grasp_pose, pre_dis=pre_dis-dis)]
         if is_close:
             actions.extend(self.close_gripper(gripper_pos))

@@ -493,7 +493,7 @@ def construct_grasp_pose(p:np.ndarray, grasp_from:np.ndarray, camera_up:np.ndarr
     '''
         construct grasp pose
         p: the position of the object
-        grasp_from: grasping from (+y)
+        grasp_from: grasping from (+z)
         camera_up: the camera up vector (+x)
     '''
     grasp_from = np.array(grasp_from).reshape(3)
