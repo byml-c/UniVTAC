@@ -32,12 +32,22 @@ if TYPE_CHECKING:
     from tacex_uipc.sim import UipcIsaacAttachmentsCfg, UipcSim
     from tacex_uipc import UipcInteractiveScene
 
+
 @configclass
 class TactileCfg:
     name: str = 'tactile_sensor'
     sensor_cfg = None
     gelpad_cfg: UipcObjectCfg = None
     gelpad_attachment_cfg: UipcIsaacAttachmentsCfg = None
+
+# Marker-only visual/observation offset for XenseWS.
+# Positive x moves markers right; negative x moves markers left.
+# Positive y moves markers down; negative y moves markers up.
+# This does not change depth, gelpad attachment, grasp control, or physics.
+XENSEWS_MARKER_SHIFT_PX = {
+    "left_tactile": (-8, -10),
+    "right_tactile": (-8, -10),
+}
 
 def create_gelsight_mini_cfg(
     prim_path: str,
@@ -178,19 +188,24 @@ def create_xensews_cfg(
             update_period=update_period,
             resolution=resolution,
             data_types=["depth", "rgb"],
-            clipping_range=(0.01, 0.03),  # (0.024, 0.034),
+            clipping_range=(0.01, 0.028),  # (0.024, 0.034),
         ),
         device="cuda",
         debug_vis=False,  # for rendering sensor output in the gui
         update_period=update_period,
         marker_motion_sim_cfg=ManiSkillSimulatorCfg(
             tactile_img_res=resolution,
+            marker_shape=(9, 7),
+            marker_interval=(2.0, 2.0),
             sub_marker_num=0,
+            marker_radius=2,
+            camera_to_surface=0.0245,
+            real_size=(0.0285, 0.0166),
             sensor_type='xensews',
         ),
         data_types=data_type
     )
-    sensor_cfg.marker_motion_sim_cfg.marker_params.num_markers = 1200
+    sensor_cfg.marker_motion_sim_cfg.marker_params.num_markers = 63
     sensor_cfg.optical_sim_cfg = sensor_cfg.optical_sim_cfg.replace(
         with_shadow=False,
         tactile_img_res=resolution,
@@ -206,7 +221,7 @@ def create_xensews_cfg(
             mass_density=1e4
         ),
         gelpad_attachment_cfg=UipcIsaacAttachmentsCfg(
-            constraint_strength_ratio=1e4,
+            constraint_strength_ratio=2e4,
             body_name=gelpad_attachment_body_name,
             isaac_rigid_prim_path=gelpad_attachment_prim_path,
             debug_vis=False,
@@ -236,6 +251,7 @@ def create_tactile_cfg(
             prim_path=prim_path,
             gelpad_prim_path=gelpad_prim_path,
             gelpad_attachment_body_name=gelpad_attachment_body_name,
+            gelpad_attachment_prim_path=gelpad_attachment_prim_path,
             name=name,
             data_type=data_type,
         )
@@ -259,6 +275,15 @@ class VisualTactileSensor:
         self.scene = scene
         self.robot = robot
         self.uipc_sim = uipc_sim
+	
+        print("\n" + "=" * 80, flush=True)
+        print("[DEBUG tactile cfg]", flush=True)
+        print("name:", self.name, flush=True)  
+        print("gelpad_cfg.prim_path:", self.cfg.gelpad_cfg.prim_path, flush=True)
+        print("attachment body_name:", self.cfg.gelpad_attachment_cfg.body_name, flush=True)
+        print("attachment rigid prim:", self.cfg.gelpad_attachment_cfg.isaac_rigid_prim_path, flush=True)
+        print("sensor prim_path:", self.cfg.sensor_cfg.prim_path, flush=True)
+        print("=" * 80 + "\n", flush=True)
 
         self.gelpad = UipcObject(self.cfg.gelpad_cfg, self.uipc_sim)
         self.attachment = UipcIsaacAttachments(
@@ -266,6 +291,56 @@ class VisualTactileSensor:
         )
         self.sensor = GelSightSensor(self.cfg.sensor_cfg, self.gelpad)
         # self.scene.sensors[f'tactile_{self.cfg.name}'] = self.sensor
+
+    def _get_marker_shift_px(self):
+        sensor_type = getattr(
+            self.cfg.sensor_cfg.marker_motion_sim_cfg,
+            "sensor_type",
+            None
+        )
+        if sensor_type != "xensews":
+            return (0, 0)
+        return XENSEWS_MARKER_SHIFT_PX.get(self.name, (0, 0))
+
+    def _shift_image_xy(self, img, dx: int, dy: int):
+        if dx == 0 and dy == 0:
+            return img
+
+        out = torch.zeros_like(img)
+
+        if img.ndim == 2:
+            h, w = img.shape
+            dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+            src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+            dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+            src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+            if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                out[dst_y0:dst_y1, dst_x0:dst_x1] = img[src_y0:src_y1, src_x0:src_x1]
+            return out
+
+        if img.ndim == 3:
+            # HWC layout: last dimension is channel.
+            if img.shape[-1] in (1, 3, 4):
+                h, w = img.shape[0], img.shape[1]
+                dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+                src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+                dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+                src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+                if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                    out[dst_y0:dst_y1, dst_x0:dst_x1, :] = img[src_y0:src_y1, src_x0:src_x1, :]
+                return out
+
+            # CHW layout.
+            h, w = img.shape[-2], img.shape[-1]
+            dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+            src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+            dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+            src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+            if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                out[:, dst_y0:dst_y1, dst_x0:dst_x1] = img[:, src_y0:src_y1, src_x0:src_x1]
+            return out
+
+        return img
     
     def setup(self):
         self.device = self.uipc_sim.cfg.device
@@ -320,11 +395,18 @@ class VisualTactileSensor:
             if data_type == 'rgb':
                 obs['rgb'] = self.sensor.data.output['tactile_rgb'].squeeze(0)
             elif data_type == 'rgb_marker':
-                obs['rgb_marker'] = self.sensor.data.output['marker_rgb'].squeeze(0)
+                rgb_marker = self.sensor.data.output['marker_rgb'].squeeze(0)
+                dx, dy = self._get_marker_shift_px()
+                obs['rgb_marker'] = self._shift_image_xy(rgb_marker, dx, dy)
             elif data_type == 'depth':
                 obs['depth'] = self.sensor.data.output['height_map'].squeeze(0)
             elif data_type == 'marker':
-                obs['marker'] = self.sensor.data.output['marker_motion'].squeeze(0)
+                marker = self.sensor.data.output['marker_motion'].squeeze(0).clone()
+                dx, dy = self._get_marker_shift_px()
+                if dx != 0 or dy != 0:
+                    marker[..., 0] = marker[..., 0] + dx
+                    marker[..., 1] = marker[..., 1] + dy
+                obs['marker'] = marker
             elif data_type == 'points':
                 obs['points'] = self.get_init_pts()
             elif data_type == 'pose':
@@ -335,8 +417,150 @@ class VisualTactileSensor:
         self.init_pose_mat = self.get_attach_pose().to_transformation_matrix()
         # self.gelpad.write_vertex_positions_to_sim(vertex_positions=self.gelpad.init_vertex_pos)
     
+    # def get_min_depth(self):
+    #     return torch.min(self.sensor.data.output['height_map']).item()
     def get_min_depth(self):
-        return torch.min(self.sensor.data.output['height_map']).item()
+        depth = self.sensor.data.output['height_map'].squeeze(0).float()
+
+        sensor_type = getattr(
+            self.cfg.sensor_cfg.marker_motion_sim_cfg,
+            "sensor_type",
+            None
+        )
+
+        if sensor_type == "xensews":
+            # Avoid fixed invalid/border pixels that dominate global min.
+            # Input shape is usually (H, W), e.g. (240, 320).
+            h, w = depth.shape[-2], depth.shape[-1]
+
+            if self.name == "left_tactile":
+                y0, y1 = int(h * 0.25), int(h * 0.75)
+                x0, x1 = int(w * 0.40), int(w * 0.90)
+
+            elif self.name == "right_tactile":
+                y0, y1 = int(h * 0.25), int(h * 0.75)
+                x0, x1 = int(w * 0.10), int(w * 0.60)
+
+            else:
+                # fallback: clean central region
+                y0, y1 = int(h * 0.35), int(h * 0.65)
+                x0, x1 = int(w * 0.35), int(w * 0.65)
+
+            roi = depth[y0:y1, x0:x1].flatten()
+            roi_p05 = torch.quantile(roi, 0.05).item()
+            roi_mean = torch.mean(roi).item()
+
+            # 先保持原控制逻辑不变
+            metric = roi_mean
+
+            if not hasattr(self, "depth_debug_count"):
+                self.depth_debug_count = 0
+
+            
+            # do_print = self.depth_debug_count < 5 or self.depth_debug_count % 20 == 0
+            do_print = False
+            if do_print:
+                print(
+                    "[DBG_ROI_BOX]",
+                    "name=", self.name,
+                    "shape=", tuple(depth.shape),
+                    "center60_y=", (y0, y1),
+                    "center60_x=", (x0, x1),
+                    flush=True,
+                )
+
+                print(
+                    "[DBG_XENSEWS_DEPTH_METRIC]",
+                    "name=", self.name,
+                    "global_min=", torch.min(depth).item(),
+                    "roi_min=", torch.min(roi).item(),
+                    "roi_p05=", roi_p05,
+                    "roi_mean=", roi_mean,
+                    "roi_max=", torch.max(roi).item(),
+                    flush=True,
+                )
+
+                # 候选 ROI：用来判断接触斑块到底在哪个区域先变化
+                # def _print_roi_stat(tag, yy0, yy1, xx0, xx1):
+                #     r = depth[yy0:yy1, xx0:xx1].flatten()
+                #     print(
+                #         "[DBG_ROI_CAND]",
+                #         "name=", self.name,
+                #         "tag=", tag,
+                #         "box_y=", (yy0, yy1),
+                #         "box_x=", (xx0, xx1),
+                #         "mean=", torch.mean(r).item(),
+                #         "p05=", torch.quantile(r, 0.05).item(),
+                #         "min=", torch.min(r).item(),
+                #         "max=", torch.max(r).item(),
+                #         flush=True,
+                #     )
+
+                # # 中心不同大小
+                # _print_roi_stat(
+                #     "center60",
+                #     int(h * 0.2), int(h * 0.8),
+                #     int(w * 0.2), int(w * 0.8),
+                # )
+                # _print_roi_stat(
+                #     "center40",
+                #     int(h * 0.3), int(h * 0.7),
+                #     int(w * 0.3), int(w * 0.7),
+                # )
+                # _print_roi_stat(
+                #     "center30",
+                #     int(h * 0.35), int(h * 0.65),
+                #     int(w * 0.35), int(w * 0.65),
+                # )
+
+                # # 左右偏移 ROI：判断接触斑块是不是偏左/偏右
+                # _print_roi_stat(
+                #     "left_center",
+                #     int(h * 0.25), int(h * 0.75),
+                #     int(w * 0.10), int(w * 0.60),
+                # )
+                # _print_roi_stat(
+                #     "right_center",
+                #     int(h * 0.25), int(h * 0.75),
+                #     int(w * 0.40), int(w * 0.90),
+                # )
+
+                # # 上下偏移 ROI：判断接触斑块是不是偏上/偏下
+                # _print_roi_stat(
+                #     "upper_center",
+                #     int(h * 0.10), int(h * 0.60),
+                #     int(w * 0.25), int(w * 0.75),
+                # )
+                # _print_roi_stat(
+                #     "lower_center",
+                #     int(h * 0.40), int(h * 0.90),
+                #     int(w * 0.25), int(w * 0.75),
+                # )
+
+                # # 3x3 分块：判断整张 depth 图哪个 block 最早变化
+                # for yi in range(3):
+                #     for xi in range(3):
+                #         yy0, yy1 = int(h * yi / 3), int(h * (yi + 1) / 3)
+                #         xx0, xx1 = int(w * xi / 3), int(w * (xi + 1) / 3)
+                #         block = depth[yy0:yy1, xx0:xx1].flatten()
+
+                #         print(
+                #             "[DBG_XENSEWS_BLOCK]",
+                #             "name=", self.name,
+                #             "block=", (yi, xi),
+                #             "box_y=", (yy0, yy1),
+                #             "box_x=", (xx0, xx1),
+                #             "mean=", torch.mean(block).item(),
+                #             "p05=", torch.quantile(block, 0.05).item(),
+                #             "min=", torch.min(block).item(),
+                #             "max=", torch.max(block).item(),
+                #             flush=True,
+                #         )
+
+            self.depth_debug_count += 1
+            return metric
+
+        return torch.min(depth).item()
 
 class TactileManager:
     def __init__(self, cfg_list: list[TactileCfg], task:'BaseTask'):

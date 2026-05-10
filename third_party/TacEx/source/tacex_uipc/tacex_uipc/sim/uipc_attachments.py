@@ -31,6 +31,8 @@ from isaaclab.utils import configclass
 from isaaclab.utils.math import transform_points
 
 from tacex_uipc.objects import UipcObject
+DEBUG_UIPC_ATTACH = False
+PRINT_UIPC_ATTACH_SUMMARY = True
 
 @configclass
 class UipcIsaacAttachmentsCfg:
@@ -130,7 +132,8 @@ class UipcIsaacAttachments:
                     isaac_rigid_prim_path = self.isaaclab_rigid_object.cfg.prim_path
                     if self.cfg.body_name is not None:
                         isaac_rigid_prim_path += "/.*" + self.cfg.body_name
-                print("isaac_rigid_prim ", isaac_rigid_prim_path)
+                if DEBUG_UIPC_ATTACH:
+                    print("isaac_rigid_prim ", isaac_rigid_prim_path)
 
                 mesh = self.uipc_object.uipc_meshes[0]
                 tet_points_world = mesh.positions().view()[:, :, 0]
@@ -148,7 +151,8 @@ class UipcIsaacAttachments:
                     isaac_rigid_prim_path = self.isaaclab_rigid_object.cfg.prim_path
                     if self.cfg.body_name is not None:
                         isaac_rigid_prim_path += "/.*" + self.cfg.body_name
-                    print("isaac_rigid_prim ", isaac_rigid_prim_path)
+                    if DEBUG_UIPC_ATTACH:
+                        print("isaac_rigid_prim ", isaac_rigid_prim_path)
 
                 mesh = self.uipc_object.uipc_meshes[0]
                 tet_points_world = mesh.positions().view()[:, :, 0]
@@ -281,7 +285,8 @@ class UipcIsaacAttachments:
 
         Returns: attachment_offsets, attachment_indices and the found rigid prims to the isaac_mesh_path
         """
-        print(f"Creating Uipc x Isaac attachments for {isaac_mesh_path}")
+        if DEBUG_UIPC_ATTACH:
+            print(f"Creating Uipc x Isaac attachments for {isaac_mesh_path}")
         # force Physx to cook everything in the scene so it get cached
         get_physx_interface().force_load_physics_from_usd()
 
@@ -311,6 +316,9 @@ class UipcIsaacAttachments:
         idx = []
         attachment_points_positions = []
         attachment_offsets = []
+        hit_total = 0
+        hit_valid = 0
+        hit_print_limit = 0
 
         # get position of current object for offset computation
         obj_pos = obj_position[0, :]
@@ -339,10 +347,15 @@ class UipcIsaacAttachments:
                 radius=sphere_radius, origin=v, dir=ray_dir, distance=max_dist, bothSides=True
             )
             if hitInfo["hit"]:
+                # 限流：只打印前 hit_print_limit 次命中
+                hit_total += 1
+                if DEBUG_UIPC_ATTACH and hit_total <= hit_print_limit:
+                    print(f"[ATTACH HIT #{hit_total}] init_prim={init_prim.GetPath()} collision={hitInfo.get('collision')}")
                 # print("hiiiit, ", hitInfo["collision"])
-                if str(init_prim.GetPath()) in hitInfo["collision"]:  # prevent attaching to unrelated geometry
-                    attachment_points_positions.append(v)
+                if str(init_prim.GetPath()) in str(hitInfo.get("collision")):  # prevent attaching to unrelated geometry
+                    hit_valid += 1
                     # idx.append(i+min_vertex_idx) unlike the gipc simulation, we use the object specific idx here
+                    attachment_points_positions.append(v)
                     idx.append(i)
                     # TODO do this at the end and compute in a vectorized fashion?
                     # compute offsets from object position to attachment points
@@ -353,12 +366,16 @@ class UipcIsaacAttachments:
                     ]
                     offset = offset.cpu().numpy()
                     attachment_offsets.append(offset)
+                else:
+                    if DEBUG_UIPC_ATTACH and hit_total <= hit_print_limit:
+                        print(f"[ATTACH REJECT] init_prim={init_prim.GetPath()}")
 
         attachment_points_positions = np.array(attachment_points_positions).reshape(-1, 3)
 
         # offset to later compute the `should-be` positions of the attachment point
         attachment_offsets = np.array(attachment_offsets).reshape(-1, 3)
         assert len(idx) == attachment_offsets.shape[0]
+        print(f"[ATTACH SUMMARY] total_hits={hit_total}, accepted_hits={hit_valid}, num_att_points={len(idx)}")
 
         # print("offsets, ", attachment_offsets)
         # print("attachment local idx, ", idx)
@@ -383,7 +400,8 @@ class UipcIsaacAttachments:
 
         Returns: attachment_offsets, attachment_indices and the found rigid prims to the isaac_mesh_path
         """
-        print(f"Creating Uipc x Isaac attachments for {isaac_mesh_path}")
+        if DEBUG_UIPC_ATTACH:
+            print(f"Creating Uipc x Isaac attachments for {isaac_mesh_path}")
         # force Physx to cook everything in the scene so it get cached
         get_physx_interface().force_load_physics_from_usd()
 
@@ -429,62 +447,6 @@ class UipcIsaacAttachments:
         attachment_points_positions = np.array(attachment_points_positions).reshape(-1, 3)
         attachment_offsets = np.array(attachment_offsets).reshape(-1, 3)
         return attachment_offsets
-
-    @staticmethod
-    def compute_attachment_data_from_given_ids(
-        isaac_mesh_path, tet_points, tet_indices, att_ids
-    ):  # really small distances to prevent intersection with unwanted geometries
-        """
-
-        Returns: attachment_offsets, attachment_indices and the found rigid prims to the isaac_mesh_path
-        """
-        print(f"Creating Uipc x Isaac attachments for {isaac_mesh_path}")
-        # force Physx to cook everything in the scene so it get cached
-        get_physx_interface().force_load_physics_from_usd()
-
-        # check if base asset path is valid
-        # note: currently the spawner does not work if there is a regex pattern in the leaf
-        #   For example, if the prim path is "/World/Robot_[1,2]" since the spawner will not
-        #   know which prim to spawn. This is a limitation of the spawner and not the asset.
-        # asset_path = isaac_mesh_path.split("/")[-1]
-        # asset_path_is_regex = re.match(r"^[a-zA-Z0-9/_]+$", asset_path) is None
-
-        # check that spawn was successful
-        matching_prims = sim_utils.find_matching_prims(isaac_mesh_path)
-        if len(matching_prims) == 0:
-            raise RuntimeError(
-                f"Could not find prim with path {isaac_mesh_path}. The body_name in the cfg might not exist."
-            )
-        init_prim = matching_prims[0]
-
-        pose = omni.usd.get_world_transform_matrix(init_prim)
-        obj_position = pose.ExtractTranslation()
-        obj_position = np.array([obj_position])
-
-        q = pose.ExtractRotation().GetQuaternion()
-        obj_orientation = [q.GetReal(), q.GetImaginary()[0], q.GetImaginary()[1], q.GetImaginary()[2]]
-        obj_orientation = torch.tensor(np.array([obj_orientation]), device="cuda:0").float()
-
-        attachment_points_positions = []
-        attachment_offsets = []
-
-        # get position of current object for offset computation
-        obj_pos = obj_position[0, :]
-        vertex_positions = tet_points
-        for i in att_ids:
-            v = vertex_positions[i]
-            attachment_points_positions.append(v)
-            offset = v - obj_pos
-            offset = torch.tensor(offset, device="cuda:0").float()
-            offset = math_utils.quat_apply_inverse(
-                obj_orientation[0].reshape((1, 4)), offset.reshape((1, 3)))[0]
-            offset = offset.cpu().numpy()
-            attachment_offsets.append(offset)
-
-        attachment_points_positions = np.array(attachment_points_positions).reshape(-1, 3)
-        attachment_offsets = np.array(attachment_offsets).reshape(-1, 3)
-        return attachment_offsets
-
     """
     Internal helper.
     """

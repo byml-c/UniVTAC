@@ -1,6 +1,7 @@
 import yaml
 import numpy as np
 import torch
+import transforms3d as t3d
 
 import isaaclab.sim as sim_utils
 import isaaclab.utils.math as math_utils
@@ -17,7 +18,7 @@ from .robot_cfg import RobotCfg
 from .curobo_planner import CuroboPlanner, CuroboPlannerCfg
 from .._global import *
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from curobo.wrap.reacher.motion_gen import MotionGenResult
     from .._base_task import BaseTask
@@ -27,17 +28,20 @@ class RobotManager:
         self.cfg = robot_cfg
         self.task = task
         self.device = task.device
-        self.sensor_type = getattr(task.cfg, 'tactile_sensor_type', 'xsensews')
-        
-        # 【修改点 1】: 根据你的任务配置获取 robot_type，默认设为 'x5a'
-        self.robot_type = getattr(task.cfg, 'robot_type', 'x5a') 
+        self.sensor_type = task.cfg.tactile_sensor_type
+
+        if self.sensor_type in ['gsmini', 'gf225']: # franka panda
+            self.robot_type = 'franka_panda'
+        elif self.sensor_type == 'xensews': # ARX-X5
+            self.robot_type = 'x5a'
+        else:
+            raise NotImplementedError(f"Sensor type {self.sensor_type} not implemented.")
 
         self.robot = Articulation(self.cfg.robot)
         self.task.scene.articulations['robot'] = self.robot
         self.planner_time_dilation_factor = planner_time_dilation_factor
 
-        # 【修改点 2】: 默认设定为 X5A 的夹爪上限
-        self.gripper_max_qpos = 0.044 
+        self.gripper_max_qpos = 0.039
         self.last_arm_velocity = None
         self.last_gripper_velocity = None
 
@@ -53,11 +57,9 @@ class RobotManager:
             self.gripper_max_qpos = self.cfg.gripper_max_qpos
             self.yaml_path = str(EMBODIMENTS_ROOT / 'franka' / 'curobo.yml')
             offset = self.cfg.gripper_offset
-            
         elif self.robot_type == 'x5a':
-            # 【修改点 3】: X5A 的末端手掌基座是 x5a_adapter_link
             self.hand_name = 'x5a_link6'
-            # 【修改点 4】: X5A 是 6 轴机械臂
+                
             self._arm_joint_names = [
                 'x5a_joint1', 'x5a_joint2', 'x5a_joint3', 
                 'x5a_joint4', 'x5a_joint5', 'x5a_joint6'
@@ -75,12 +77,60 @@ class RobotManager:
             
         else:
             raise NotImplementedError(f"Robot type {self.robot_type} not implemented.")
- 
-        # offset from end-effector to gripper center frame
-        self._offset = Pose(p=[0, 0, -offset], q=[1, 0, 0, 0])
-        self._offset_pos = torch.tensor([0.0, 0.0, offset], device=self.device).repeat(self.task.num_envs, 1)
-        self._offset_rot = torch.tensor([1.0, 0.0, 0.0, 0.0], device=self.device).repeat(self.task.num_envs, 1)
 
+        if self.robot_type == 'x5a':
+            q_offset = [1, 0, 0, 0]
+            # x5a_offset_p = [-0.160, -0.0005, -0.0245] # insert_hole *0.9
+            # x5a_offset_p = [-0.158, -0.0005, -0.012] # insert_tube *0.7
+            x5a_offset_p = [-0.245, -0.0005, -0.0015] 
+ 
+            self._offset = Pose(
+                p=x5a_offset_p,
+                q=q_offset,
+            )
+            self._offset_pos = torch.tensor(
+                x5a_offset_p,
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+            self._offset_rot = torch.tensor(
+                q_offset,
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+
+        else:
+            # 原来的 Franka / 默认逻辑
+            self._offset = Pose(p=[0, 0, -offset], q=[1, 0, 0, 0])
+            self._offset_pos = torch.tensor(
+                [0.0, 0.0, offset],
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+            self._offset_rot = torch.tensor(
+                [1.0, 0.0, 0.0, 0.0],
+                device=self.device,
+            ).repeat(self.task.num_envs, 1)
+
+    def adapt_grasp_tcp_pose_for_robot(self, tcp_pose: Pose) -> Pose:
+        if self.robot_type != "x5a":
+            return tcp_pose
+
+        x5a_grasp_frame_fix = Pose(
+            p=[0.0, 0.0, 0.0],
+            q=[0.7071, 0.0, 0.7071, 0.0],
+        )
+        tcp_pose = tcp_pose.add_offset(x5a_grasp_frame_fix)
+
+        mat = tcp_pose.to_transformation_matrix()
+        R = mat[:3, :3].copy()
+        R[:, 1] *= -1.0
+        R[:, 2] *= -1.0
+
+        tcp_pose = Pose(
+            p=tcp_pose.p,
+            q=t3d.quaternions.mat2quat(R),
+        )
+
+        return tcp_pose
+    
     def setup(self):
         """设置机器人属性"""
         body_ids, body_names = self.robot.find_bodies(self.hand_name)
@@ -91,33 +141,12 @@ class RobotManager:
         joint_names = self.robot.joint_names
         self.joint_name_to_id = {name: i for i, name in enumerate(joint_names)}
 
-        missing_arm_joints = [n for n in self._arm_joint_names if n not in self.joint_name_to_id]
-        if len(missing_arm_joints) > 0:
-            raise KeyError(f"Missing arm joints in articulation: {missing_arm_joints}. Available joints: {joint_names}")
-
-        self._arm_ids = torch.tensor(
-            [self.joint_name_to_id[n] for n in self._arm_joint_names],
-            dtype=torch.long,
-            device=self.device,
-        )
-
-        # Fixed-adapter robots, such as the current X5A + XenseWS asset, do not
-        # have finger joints. Treat missing/empty gripper joints as a disabled
-        # gripper instead of failing during setup.
-        missing_gripper_joints = [n for n in self._gripper_joint_names if n not in self.joint_name_to_id]
-        if len(missing_gripper_joints) > 0:
-            print(f"[WARN] Missing gripper joints: {missing_gripper_joints}. Disable gripper control.")
-            self._gripper_joint_names = []
-
-        if len(self._gripper_joint_names) == 0:
-            self._gripper_ids = torch.empty(0, dtype=torch.long, device=self.device)
-        else:
-            self._gripper_ids = torch.tensor(
-                [self.joint_name_to_id[n] for n in self._gripper_joint_names],
-                dtype=torch.long,
-                device=self.device,
-            )
-
+        self._arm_ids = torch.tensor([
+            self.joint_name_to_id[n] for n in self._arm_joint_names
+        ], device=self.device)
+        self._gripper_ids = torch.tensor([
+            self.joint_name_to_id[n] for n in self._gripper_joint_names
+        ], device=self.device)
         self.origin_pose = self.get_gripper_center_pose()
         self._all_ids = torch.cat([self._arm_ids, self._gripper_ids], dim=0)
  
@@ -164,31 +193,11 @@ class RobotManager:
 
     def get_qpos(self):
         return self.robot.data.joint_pos.clone().cpu()
-
-    def _ids_on_tensor_device(self, ids: torch.Tensor, ref_tensor: torch.Tensor) -> torch.Tensor:
-        """Move joint index tensors to the same device as the tensor being indexed.
-
-        get_qpos() intentionally returns a CPU tensor in this project, while
-        articulation tensors may live on CUDA. PyTorch requires index tensors to
-        be on CPU or on the same device as the indexed tensor, so centralize the
-        conversion here.
-        """
-        return ids.to(device=ref_tensor.device, dtype=torch.long)
-
+    
     def get_gripper_qpos(self):
-        if self._gripper_ids.numel() == 0:
-            return 0.0
-
-        qpos = self.get_qpos()
-        gripper_ids = self._ids_on_tensor_device(self._gripper_ids, qpos)
-
-        # Use the mean in case the gripper has two symmetric prismatic joints.
-        return qpos[0, gripper_ids].mean().detach().cpu().item()
-
+        return self.get_qpos()[0, self._gripper_ids[0]].clone().cpu().item()
     def get_gripper_percentage(self):
-        if self._gripper_ids.numel() == 0 or self.gripper_max_qpos == 0:
-            return 0.0
-        return self.get_gripper_qpos() / self.gripper_max_qpos
+        return self.get_gripper_qpos().item() / self.gripper_max_qpos
 
     def set_arm(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=True):
         '''设置目标位姿'''
@@ -201,58 +210,11 @@ class RobotManager:
                 self.robot._ALL_INDICES
             )
 
-    def _num_envs_for_target(self, env_ids=None) -> int:
-        if env_ids is None:
-            return self.task.num_envs
-        if isinstance(env_ids, slice):
-            return self.task.num_envs
-        if torch.is_tensor(env_ids):
-            return int(env_ids.numel())
-        if isinstance(env_ids, (list, tuple)):
-            return len(env_ids)
-        return 1
-
-    def _expand_gripper_target(self, value, env_ids=None) -> torch.Tensor:
-        """Convert a scalar/single-joint target to [num_envs, num_gripper_joints]."""
-        num_gripper_joints = int(self._gripper_ids.numel())
-        num_envs = self._num_envs_for_target(env_ids)
-
-        if not torch.is_tensor(value):
-            value = torch.tensor(value, dtype=torch.float32, device=self.device)
-        else:
-            value = value.to(device=self.device, dtype=torch.float32)
-
-        if value.ndim == 0:
-            return value.repeat(num_envs, num_gripper_joints)
-
-        if value.ndim == 1:
-            if value.numel() == 1:
-                return value.repeat(num_envs, num_gripper_joints)
-            if value.numel() == num_gripper_joints:
-                return value.unsqueeze(0).repeat(num_envs, 1)
-            if value.numel() == num_envs:
-                return value.view(num_envs, 1).repeat(1, num_gripper_joints)
-            return value
-
-        if value.ndim == 2:
-            if value.shape[1] == 1 and num_gripper_joints > 1:
-                return value.repeat(1, num_gripper_joints)
-            return value
-
-        raise ValueError(f"Unsupported gripper target shape: {tuple(value.shape)}")
-
     def set_gripper(self, pos:torch.Tensor, vel:torch.Tensor=None, env_ids:slice=None, force:bool=True):
-        '''设置夹爪目标位置。X5A 使用左右 adapter prismatic joints 时会自动广播到两个关节。'''
-        if self._gripper_ids.numel() == 0:
-            return
-
-        pos = self._expand_gripper_target(pos, env_ids=env_ids)
+        '''设置目标位姿'''
         self.robot.set_joint_position_target(pos, joint_ids=self._gripper_ids, env_ids=env_ids)
-
         if vel is not None:
-            vel = self._expand_gripper_target(vel, env_ids=env_ids)
             self.robot.set_joint_velocity_target(vel, joint_ids=self._gripper_ids, env_ids=env_ids)
-
         if force:
             self.robot.root_physx_view.set_dof_positions(
                 self.robot._data.joint_pos_target,
@@ -260,11 +222,12 @@ class RobotManager:
             )
 
     def plan_arm(self, target_pose:Pose, constraint_pose=None, pre_dis=None, time_dilation_factor=None):
+        current_ee_pose = self.get_ee_pose()
+
         result:MotionGenResult = self.planner.plan_path(
-            # Pass the full articulation joint vector. CuroboPlanner selects
-            # active joints by name, so this works for Franka and X5A.
-            curr_joint_pos=self.robot.data.joint_pos[0],
-            curr_joint_vel=self.robot.data.joint_vel[0],
+            curr_joint_pos=self.robot.data.joint_pos[0, :self.robot.num_joints-2],
+            curr_joint_vel=self.robot.data.joint_vel[0, :self.robot.num_joints-2],
+            current_ee_pose=current_ee_pose,
             target_ee_pose=target_pose,
             real_robot_pose=self.root_pose,
             pre_dis=pre_dis,
@@ -273,6 +236,21 @@ class RobotManager:
         )
         
         if result.success.item():
+            plan_pos = result.interpolated_plan.position.detach()
+            plan_vel = result.interpolated_plan.velocity.detach()
+
+            print(
+                "[DEBUG PLAN_ARM_RESULT]",
+                "target_pose=", target_pose,
+                "num_steps=", plan_pos.shape[0],
+                "plan_pos_shape=", tuple(plan_pos.shape),
+                "first_q=", plan_pos[0].detach().cpu().tolist(),
+                "last_q=", plan_pos[-1].detach().cpu().tolist(),
+                "current_q_before=", self.robot.data.joint_pos[0, :self.robot.num_joints-2].detach().cpu().tolist(),
+                "current_ee_before=", current_ee_pose,
+                "current_gc_before=", self.get_gripper_center_pose(),
+                flush=True,
+            )
             return {
                 'status': 'Success',
                 'num_steps': result.interpolated_plan.position.shape[0],
@@ -283,40 +261,19 @@ class RobotManager:
             return {'status': 'Fail', 'num_steps': 0, 'position': None, 'velocity': None}
 
     def gripper_percent2qpos(self, percentage:float):
-        if self._gripper_ids.numel() == 0 or self.gripper_max_qpos == 0:
-            return 0.0
         gripper_range = [0, self.gripper_max_qpos]
         target_pos = gripper_range[0] + (gripper_range[1] - gripper_range[0]) * percentage
         return target_pos
 
     def plan_gripper(self, pos:float, type:Literal['percent', 'qpos'] = 'percent'):
-        # If an asset has no actuated gripper joints, return a zero-step
-        # successful plan so higher-level task code can continue.
-        if self._gripper_ids.numel() == 0:
-            return {
-                'status': 'Success',
-                'num_steps': 0,
-                'position': torch.empty(0, device=self.device),
-                'velocity': torch.empty(0, device=self.device),
-            }
-
         if type == 'percent':
             target_pos = self.gripper_percent2qpos(pos)
         else:
             target_pos = pos
-
-        joint_pos = self.robot.data.joint_pos
-        gripper_ids = self._ids_on_tensor_device(self._gripper_ids, joint_pos)
-        gripper_pos = joint_pos[0, gripper_ids][0]
-
-        start_pos = float(gripper_pos.detach().cpu().item())
-        target_pos = float(target_pos)
-
-        num_steps = np.ceil(abs(target_pos - start_pos) / 0.0005).astype(int)
-        num_steps = max(int(num_steps), 1)
-
-        position = torch.linspace(start_pos, target_pos, num_steps, device=self.device)
-        velocity = torch.clip((position - start_pos) / self.task.cfg.sim.dt, -0.0001, 0.0001)
+        gripper_pos = self.robot.data.joint_pos[0, self._gripper_ids][0]
+        num_steps = np.ceil(abs(target_pos - gripper_pos.cpu().item()) / 0.0005).astype(int)
+        position = torch.linspace(gripper_pos, target_pos, num_steps, device=self.device)
+        velocity = torch.clip((position - gripper_pos)/self.task.cfg.sim.dt, -0.0001, 0.0001)
 
         return {
             'status': 'Success',

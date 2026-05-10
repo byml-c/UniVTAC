@@ -85,21 +85,28 @@ class CuroboPlanner:
         self.motion_gen.reset()
 
     def get_curr_world_cfg(self):
-        # obstacles = self.usd_helper.get_obstacles_from_stage(
-        #     only_paths=["/World"],
-        #     reference_prim_path=self.robot_prime_path,
-        #     ignore_substring=['/World/defaultGroundPlane', '/World/visualize/*', self.robot_prime_path]
-        # ).get_collision_check_world()
-        obstacles = {
-            "cuboid": {
-                "table": {
-                    "dims": [0.5, 0, 0],
-                    "pose": [-1000, 0.0, 0.0, 1, 0, 0, 0],
-                },
-            }
-        }
+        obstacles = self.usd_helper.get_obstacles_from_stage(
+            only_paths=["/World"],
+            reference_prim_path='/World/envs/env_0/Robot',
+            ignore_paths=[
+                '/World/visualize',
+                '/World/envs/env_0/Robot',
+                '/World/envs/env_0/ground_plate',
+                # Debug: isolate arm-only EE motion from scene-object collision avoidance.
+                '/World/envs/env_0/prism',
+                '/World/envs/env_0/prism_base',
+            ]
+        ).get_collision_check_world()
+        # obstacles = {
+        #     "cuboid": {
+        #         "table": {
+        #             "dims": [0.5, 0, 0],
+        #             "pose": [-1000, 0.0, 0.0, 1, 0, 0, 0],
+        #         },
+        #     }
+        # }
         return obstacles
- 
+
     def update_world(self):
         self.motion_gen.update_world(self.get_curr_world_cfg())
 
@@ -109,23 +116,95 @@ class CuroboPlanner:
         curr_joint_vel: torch.Tensor,
         target_ee_pose,
         real_robot_pose,
+        current_ee_pose=None,
         pre_dis=None,
         constraint_pose=None,
         time_dilation_factor=None
     ):
-        # self.update_world()
-        target_pose = calculate_target_pose(
-            real_robot_pose, self.robot_origin_pose, target_ee_pose)
-        # transformation from world to arm's base
-        target_pose = target_pose.rebase(to_coord=self.robot_origin_pose).add_bias(
-            self.frame_bias, coord='world', clone=False
-        )
-        goal_pose_of_ee = CuroboPose.from_list(target_pose.tolist())
+        self.update_world()
+
         joint_indices = np.array([
-            self.all_joints.index(name) for name in self.active_joints_name if name in self.all_joints])
+            self.all_joints.index(name)
+            for name in self.active_joints_name
+            if name in self.all_joints
+        ])
         joint_pos = curr_joint_pos[joint_indices].reshape(1, -1)
         joint_vel = curr_joint_vel[joint_indices].reshape(1, -1)
-        
+
+        # Dynamic FK alignment between Isaac's EE frame and cuRobo's EE frame.
+        # Reason:
+        #   Isaac and cuRobo can report different absolute x5a_link6 positions
+        #   for the same joint state. A static world-frame frame_bias only works
+        #   near one configuration and can shift targets after grasp.
+        # Method:
+        #   Convert the Isaac requested motion into a relative transform:
+        #       delta = inv(T_isaac_current) @ T_isaac_target
+        #   Then apply that same relative motion from cuRobo's current FK pose:
+        #       T_curobo_target = T_curobo_current @ delta
+        #   This makes target=current stay at current in every configuration,
+        #   and makes small EE displacements remain small in cuRobo space.
+        try:
+            fk_state = self.motion_gen.kinematics.get_state(joint_pos)
+            curobo_current_pose = Pose(
+                fk_state.ee_position[0].detach().cpu().numpy(),
+                fk_state.ee_quaternion[0].detach().cpu().numpy(),
+            )
+
+            if current_ee_pose is not None:
+                T_isaac_current = current_ee_pose.to_transformation_matrix()
+                T_isaac_target = target_ee_pose.to_transformation_matrix()
+                T_curobo_current = curobo_current_pose.to_transformation_matrix()
+
+                T_delta = np.linalg.inv(T_isaac_current) @ T_isaac_target
+                T_curobo_target = T_curobo_current @ T_delta
+                target_pose = Pose.from_matrix(T_curobo_target)
+
+                print(
+                    "[DEBUG CUROBO_TARGET_DYNAMIC]",
+                    "isaac_current=", current_ee_pose,
+                    "isaac_target=", target_ee_pose,
+                    "curobo_current=", curobo_current_pose,
+                    "curobo_target=", target_pose,
+                    "joint_pos=", joint_pos.squeeze(0).detach().cpu().tolist(),
+                    flush=True,
+                )
+            else:
+                # Fallback for callers that do not provide Isaac's current EE pose.
+                # Keep frame_bias only for backward compatibility; the X5A path should
+                # pass current_ee_pose and use the dynamic branch above.
+                target_pose = Pose(
+                    np.array(target_ee_pose.p).copy(),
+                    np.array(target_ee_pose.q).copy(),
+                )
+                if self.frame_bias is not None:
+                    target_pose = target_pose.add_bias(
+                        self.frame_bias,
+                        coord='world',
+                        clone=False,
+                    )
+
+                print(
+                    "[DEBUG CUROBO_TARGET_STATIC_FALLBACK]",
+                    "input_target_pose=", target_ee_pose,
+                    "target_pose=", target_pose,
+                    "curobo_current=", curobo_current_pose,
+                    "joint_pos=", joint_pos.squeeze(0).detach().cpu().tolist(),
+                    flush=True,
+                )
+        except Exception as e:
+            print(
+                "[DEBUG CUROBO_TARGET_DYNAMIC_ERR]",
+                repr(e),
+                flush=True,
+            )
+            # Conservative fallback: do not silently apply a stale frame_bias here.
+            target_pose = Pose(
+                np.array(target_ee_pose.p).copy(),
+                np.array(target_ee_pose.q).copy(),
+            )
+
+        goal_pose_of_ee = CuroboPose.from_list(target_pose.tolist())
+
         start_joint_states = JointState(
             position=joint_pos,
             velocity=joint_vel,

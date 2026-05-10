@@ -175,7 +175,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
         ),
         CameraCfg(
             name="wrist",
-            prim_path="/World/envs/env_.*/Robot/x5a_camera/sensor_camera",
+            prim_path="/World/envs/env_.*/Robot/WristCamera/Camera",
             data_types=["rgb", "depth"],
             spawn=None, # use existing camera
             width=480,
@@ -245,6 +245,16 @@ class BaseTask(UipcRLEnv):
         self._robot_manager.setup()
         self._camera_manager.setup()
         self._tactile_manager.setup()
+        try:
+            print(
+                "\n[DEBUG TACTILE AFTER setup]",
+                "sensor=", self.cfg.tactile_sensor_type,
+                "min_depth=", self._tactile_manager.get_min_depth(),
+                "far_plane=", self.cfg.robot.tactile_far_plane,
+                flush=True,
+            )   
+        except Exception as e:
+            print("[DEBUG TACTILE AFTER setup ERROR]", repr(e), flush=True)
         self._tactile_manager.set_debug_vis(self.cfg.debug_vis)
         self.set_debug_vis(self.cfg.debug_vis)
     
@@ -256,12 +266,27 @@ class BaseTask(UipcRLEnv):
             cfg.robot = create_franka_gf225_gripper(data_type=data_type)
         elif cfg.tactile_sensor_type == 'xensews':
             cfg.robot = create_x5a_xensews_gripper(data_type=data_type)
+            # cfg.robot = create_franka_xensews_gripper(data_type=data_type)
         else:
             raise ValueError(f'Unknown tactile sensor type: {cfg.tactile_sensor_type}')
         
         if cfg.adaptive_grasp_depth_threshold is None:
             cfg.adaptive_grasp_depth_threshold = cfg.robot.adaptive_grasp_depth_threshold
+            print(
+                "\n[DEBUG SENSOR CONFIG AFTER load_robot_and_sensors]",
+                "cfg.tactile_sensor_type=", cfg.tactile_sensor_type,
+                "robot_type=", type(cfg.robot),
+                "robot.gripper_offset=", getattr(cfg.robot, "gripper_offset", None),
+                "robot.gripper_max_qpos=", getattr(cfg.robot, "gripper_max_qpos", None),
+                "robot.tactile_far_plane=", getattr(cfg.robot, "tactile_far_plane", None),
+                "robot.adaptive_grasp_depth_threshold=", getattr(cfg.robot, "adaptive_grasp_depth_threshold", None),
+                "cfg.adaptive_grasp_depth_threshold=", cfg.adaptive_grasp_depth_threshold,
+                "robot.contact_threshold=", getattr(cfg.robot, "contact_threshold", None),
+                "robot.tactiles=", getattr(cfg.robot, "tactiles", None),
+                flush=True,
+            )
         return cfg
+            
  
     def _setup_save(self):
         if self.cfg.save_dir == "auto":
@@ -391,7 +416,13 @@ class BaseTask(UipcRLEnv):
                         f'Timeout: reset exceed time limit of {self.cfg.reset_time_limit} s, cost {reset_test_cost} s.'
                     )
             self._update_render()
-
+            print(
+            "\n[DEBUG RESET after first _update_render]",
+            "step_count=", self.step_count,
+            "min_depth=", self._tactile_manager.get_min_depth(),
+            "far_plane=", self.cfg.robot.tactile_far_plane,
+            flush=True,
+            )
             self.first_frame = self.uipc_sim.world.frame()
             self.uipc_sim.save_frame()
 
@@ -419,7 +450,19 @@ class BaseTask(UipcRLEnv):
                 )
         self._update_render()
 
+        print(
+            "\n[DEBUG RESET before pre_move]",
+            "step_count=", self.step_count,
+            "min_depth=", self._tactile_manager.get_min_depth(),
+            flush=True,
+        )
         self.pre_move()
+        print(
+            "\n[DEBUG RESET after pre_move]",
+            "step_count=", self.step_count,
+            "min_depth=", self._tactile_manager.get_min_depth(),
+            flush=True,
+        )
         self.in_pre_move = False
 
         # update render to avoid artifacts
@@ -479,19 +522,19 @@ class BaseTask(UipcRLEnv):
     def get_frame_shot(self, obs):
         head_obs = obs['observation']['head']['rgb'].clone()
         wrist_obs = obs['observation']['wrist']['rgb'].clone()
-        tac_size = 240
+        tac_size = 160
         left_tac = torchvision.transforms.Resize((tac_size, tac_size))(
             obs['tactile']['left_tactile']['rgb_marker'].clone().permute(2, 0, 1)).permute(1, 2, 0)
         right_tac = torchvision.transforms.Resize((tac_size, tac_size))(
             obs['tactile']['right_tactile']['rgb_marker'].clone().permute(2, 0, 1)).permute(1, 2, 0)
 
-        img = torch.zeros((320, 480*2, 3), dtype=head_obs.dtype)
+        img = torch.zeros((320, 480*2+160, 3), dtype=head_obs.dtype)
         img[:, :480, :] = torchvision.transforms.Resize(
             (320, 480))(head_obs.permute(2, 0, 1)).permute(1, 2, 0)
-        img[:, 480:, :] = torchvision.transforms.Resize(
+        img[:, 480:480*2, :] = torchvision.transforms.Resize(
             (320, 480))(wrist_obs.permute(2, 0, 1)).permute(1, 2, 0)
-        img[:tac_size, :tac_size, :] = left_tac
-        img[:tac_size, -tac_size:, :] = right_tac
+        img[:tac_size, 480*2:, :] = left_tac
+        img[tac_size:, 480*2:, :] = right_tac
         return img
 
     @staticmethod
@@ -626,6 +669,23 @@ class BaseTask(UipcRLEnv):
             obs['observation'] = self._camera_manager.get_observations(self.cfg.obs_data_type['camera'])
         if 'tactile' in self.cfg.obs_data_type:
             obs['tactile'] = self._tactile_manager.get_observations(self.cfg.obs_data_type['tactile'])
+            if self.cfg.tactile_sensor_type == "xensews" and self.step_count % 20 == 0:
+                try:
+                    for name, tac_obs in obs['tactile'].items():
+                        if isinstance(tac_obs, dict) and 'depth' in tac_obs:
+                            d = tac_obs['depth'].float()
+                            print(
+                            "[DBG_TAC_DEPTH_STATS]",
+                            "step=", self.step_count,
+                            "name=", name,
+                            "shape=", tuple(d.shape),
+                            "min=", torch.min(d).item(),
+                            "mean=", torch.mean(d).item(),
+                            "max=", torch.max(d).item(),
+                            flush=True,
+                        )
+                except Exception as e:
+                    print("[DBG_TAC_DEPTH_STATS_ERR]", repr(e), flush=True)
         if 'actor' in self.cfg.obs_data_type:
             obs['actor'] = self._actor_manager.get_observations()
         return obs
@@ -730,6 +790,24 @@ class BaseTask(UipcRLEnv):
                 if self.mode in ['collect', 'eval_test'] or (self.mode == 'eval' and self.in_pre_move):
                     if self.cfg.use_adaptive_grasp:
                         target_pos = self._robot_manager.gripper_percent2qpos(action.target_gripper_pos)
+                        selected_threshold = action.args.get('gripper_depth_threshold', gripper_depth_threshold)
+
+                        print(
+                        "\n[DEBUG MOVE GRIPPER INPUT]",
+                        "atom_id=", self.atom_id,
+                        "tag=", tag,
+                        "action_idx=", idx,
+                        "action.action=", action.action,
+                        "action.target_gripper_pos=", action.target_gripper_pos,
+                        "target_qpos=", target_pos,
+                        "action.args=", action.args,
+                        "move.gripper_depth_threshold=", gripper_depth_threshold,
+                        "selected_threshold=", selected_threshold,
+                        "cfg.adaptive_grasp_depth_threshold=", self.cfg.adaptive_grasp_depth_threshold,
+                        "current_qpos=", self._robot_manager.get_gripper_qpos(),
+                        "current_min_depth=", self._tactile_manager.get_min_depth(),
+                        flush=True,
+                        )
                         control_seq['gripper'] = {
                             'status': 'success',
                             'num_steps': -1,
@@ -781,6 +859,17 @@ class BaseTask(UipcRLEnv):
 
         if gripper_steps == -1: # adaptive grasp
             idx, gripper_active = 0, True
+            print(
+    "\n[DEBUG TAKE_DENSE adaptive start]",
+    "arm_steps=", arm_steps,
+    "gripper_steps=", gripper_steps,
+    "gripper_target=", gripper_seq['target'],
+    "gripper_threshold=", gripper_seq['threshold'],
+    "current_qpos=", self._robot_manager.get_gripper_qpos(),
+    "current_min_depth=", self._tactile_manager.get_min_depth(),
+    "is_save=", is_save,
+    flush=True,
+            )           
             gripper_planner = self.adaptive_set_gripper(
                 gripper_seq['target'], gripper_seq['threshold'])
             while True:
@@ -793,8 +882,32 @@ class BaseTask(UipcRLEnv):
                     )
                 if gripper_active:
                     pos, vel, gripper_active = next(gripper_planner)
+
+                    if idx < 5 or idx % 20 == 0:
+                        print(
+                        "[DEBUG TAKE_DENSE before set_gripper]",
+                        "idx=", idx,
+                        "pos=", pos,
+                        "vel=", vel,
+                        "gripper_active=", gripper_active,
+                        "real_qpos_before=", self._robot_manager.get_gripper_qpos(),
+                        "min_depth_before=", self._tactile_manager.get_min_depth(),
+                        flush=True,
+                        )
+
                     self._robot_manager.set_gripper(pos, vel)
+
                 self._step(is_save)
+
+                if idx < 5 or idx % 20 == 0:
+                    print(
+                    "[DEBUG TAKE_DENSE after _step]",
+                    "idx=", idx,
+                    "real_qpos_after=", self._robot_manager.get_gripper_qpos(),
+                    "min_depth_after=", self._tactile_manager.get_min_depth(),
+                    flush=True,
+                    )
+
                 idx += 1
         else:
             max_control_len = max(arm_steps, gripper_steps)
@@ -854,14 +967,34 @@ class BaseTask(UipcRLEnv):
         return exec_success, self.eval_success
 
     def adaptive_set_gripper(self, qpos, depth_threshold:float=None):
+        print(
+        "[DEBUG adaptive input]",
+        "sensor=", self.cfg.tactile_sensor_type,
+        "current_qpos=", self._robot_manager.get_gripper_qpos(),
+        "target_qpos=", qpos,
+        "input_depth_threshold=", depth_threshold,
+        "cfg_threshold=", self.cfg.adaptive_grasp_depth_threshold,
+        "robot_threshold=", self.cfg.robot.adaptive_grasp_depth_threshold,
+        "far_plane=", self.cfg.robot.tactile_far_plane,
+        "min_depth=", self._tactile_manager.get_min_depth(),
+        flush=True,
+        )
         max_steps = 1000
         default_step, contact_step = 0.0005, 0.00005
         last_qpos = self._robot_manager.get_gripper_qpos()
+        print(
+            "[DEBUG adaptive_set_gripper]",
+            "current_qpos=", last_qpos,
+            "target_qpos=", qpos,
+            "depth_threshold=", depth_threshold,
+            flush=True,
+        )
         max_depth = self.cfg.robot.tactile_far_plane \
             * torch.ones_like(self._tactile_manager.get_min_depth()) # mm
         if depth_threshold is not None:
             depth_threshold = depth_threshold * torch.ones_like(max_depth)
         direct = 'open' if self._robot_manager.get_gripper_qpos() < qpos else 'close'
+        print("[DEBUG adaptive_set_gripper] direct=", direct, flush=True)
 
         step_size = contact_step if direct == 'open' else -default_step
         for i in range(max_steps):
@@ -869,10 +1002,45 @@ class BaseTask(UipcRLEnv):
             tactile_depth = self._tactile_manager.get_min_depth()
 
             if direct == 'close':
+                should_log = i < 3 or i % 20 == 0
+                if should_log:
+                    print(
+                        "[DEBUG close before condition]",
+                        "i=", i,
+                        "current_qpos=", current_qpos,
+                        "tactile_depth=", tactile_depth,
+                    "max_depth=", max_depth,
+                    "depth_threshold=", depth_threshold,
+                    "is_far=", torch.allclose(max_depth, tactile_depth, atol=1e-5),
+                    "all_below_threshold=", torch.all(tactile_depth < depth_threshold) if depth_threshold is not None else None,
+                    "min_depth=", torch.min(tactile_depth).item(),
+                    "max_tactile_depth=", torch.max(tactile_depth).item(),
+                    flush=True,
+                    )
                 if torch.allclose(max_depth, tactile_depth, atol=1e-5):
                     step_size = -default_step
                 elif depth_threshold is not None:
-                    if torch.all(tactile_depth < depth_threshold):
+                    should_break = torch.all(tactile_depth < depth_threshold)
+                    if should_log:
+                        print(
+                        "[DEBUG adaptive_set_gripper close depth]",
+                        "i=", i,
+                        "tactile_depth=", tactile_depth,
+                        "depth_threshold=", depth_threshold,
+                        "should_break=", should_break,
+                        flush=True,
+                        )
+                    if should_break:
+                        print(
+                            "[DEBUG adaptive_set_gripper BREAK_BY_DEPTH]",
+                            "i=", i,
+                            "current_qpos=", current_qpos,
+                            "tactile_depth=", tactile_depth,
+                            "depth_threshold=", depth_threshold,
+                            "min_depth=", torch.min(tactile_depth).item(),
+                            "max_tactile_depth=", torch.max(tactile_depth).item(),
+                            flush=True,
+                        )
                         break
                     else:
                         step_size = - min(
@@ -896,6 +1064,15 @@ class BaseTask(UipcRLEnv):
                     step_size = default_step
 
             if np.allclose(current_qpos, qpos, atol=1e-5):
+                print(
+                    "[DEBUG adaptive_set_gripper BREAK_BY_TARGET]",
+                    "i=", i,
+                    "current_qpos=", current_qpos,
+                    "target_qpos=", qpos,
+                    "tactile_depth=", tactile_depth,
+                    "depth_threshold=", depth_threshold,
+                    flush=True,
+                )
                 break
             elif np.abs(current_qpos - qpos) < np.abs(step_size):
                 target_qpos = qpos
@@ -906,7 +1083,19 @@ class BaseTask(UipcRLEnv):
             last_qpos = current_qpos
             yield position, velocity, True
 
+        
+        
         final_position = torch.tensor([last_qpos, last_qpos], device=self._robot_manager.device)
+        final_qpos = self._robot_manager.get_gripper_qpos()
+        print(
+            "[DEBUG adaptive_set_gripper END]",
+            "final_qpos=", final_qpos,
+            "final_position=", final_position,
+            "last_qpos=", last_qpos,
+            "target_qpos=", qpos,
+            "direct=", direct,
+            flush=True,
+        )
         yield final_position, torch.zeros_like(final_position), False
 
     def gravity_rotate(self, actor:Actor, target_vec, target_axis=[0, 0, 1], is_save=True):

@@ -2,14 +2,14 @@
 <robot name="X5A">
   <link name="x5a_link0">
     <inertial>
-      <origin xyz="-0.000035704 0.000030589 0.032517801" rpy="0 0 0" />
+      <origin xyz="-5.3556e-05 4.58835e-05 0.0487767015" rpy="0 0 0" />
       <mass value="0.43995" />
       <inertia ixx="0.00017" ixy="0.00000" ixz="0.00000" iyy="0.00017" iyz="0.00000" izz="0.00016" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link0.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link0.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -18,20 +18,20 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link0.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link0.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <link name="x5a_link1">
     <inertial>
-      <origin xyz="0.006453934 -0.0080289 0.020333741" rpy="0 0 0" />
+      <origin xyz="0.009680901 -0.01204335 0.0305006115" rpy="0 0 0" />
       <mass value="0.066982" />
       <inertia ixx="0.00008" ixy="0.00000" ixz="0.00001" iyy="0.00003" iyz="0.00000" izz="0.00008" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link1.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link1.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -40,12 +40,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link1.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link1.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint1" type="revolute">
-    <origin xyz="0 0 0.071999961" rpy="0 0 0" />
+    <origin xyz="0 0 0.107999942" rpy="0 0 0" />
     <parent link="x5a_link0" />
     <child link="x5a_link1" />
     <axis xyz="0 0 1" />
@@ -53,14 +53,14 @@
   </joint>
   <link name="x5a_link2">
     <inertial>
-      <origin xyz="-0.157531154 0.0020852 0.000125542" rpy="0 0 0" />
+      <origin xyz="-0.236296731 0.0031278 0.000188313" rpy="0 0 0" />
       <mass value="1.0795" />
       <inertia ixx="0.00051" ixy="0.00001" ixz="-0.00004" iyy="0.01599" iyz="0.00000" izz="0.01605" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link2.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link2.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -69,12 +69,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link2.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link2.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint2" type="revolute">
-    <origin xyz="0.02380164 0 0.04760328" rpy="0 0 0" />
+    <origin xyz="0.03570246 0 0.07140492" rpy="0 0 0" />
     <parent link="x5a_link1" />
     <child link="x5a_link2" />
     <axis xyz="0 1 0" />
@@ -82,14 +82,14 @@
   </joint>
   <link name="x5a_link3">
     <inertial>
-      <origin xyz="0.220534095 0.00068376 -0.061453454" rpy="0 0 0" />
+      <origin xyz="0.330801143 0.00102564 -0.092180181" rpy="0 0 0" />
       <mass value="0.54534" />
       <inertia ixx="0.00036" ixy="-0.00003" ixz="-0.00039" iyy="0.00423" iyz="0.00001" izz="0.00420" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link3.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link3.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="white">
         <color rgba="1 1 1 1" />
@@ -98,12 +98,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link3.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link3.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint3" type="revolute">
-    <origin xyz="-0.314181648 0 0" rpy="3.1416 0 0" />
+    <origin xyz="-0.471272472 0 0" rpy="3.1416 0 0" />
     <parent link="x5a_link2" />
     <child link="x5a_link3" />
     <axis xyz="0 1 0" />
@@ -111,14 +111,14 @@
   </joint>
   <link name="x5a_link4">
     <inertial>
-      <origin xyz="0.047878189 0.0044807 -0.042051547" rpy="0 0 0" />
+      <origin xyz="0.0718172835 0.00672105 -0.0630773205" rpy="0 0 0" />
       <mass value="0.11714" />
       <inertia ixx="0.00019" ixy="-0.00002" ixz="-0.00009" iyy="0.00023" iyz="0.00002" izz="0.00014" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link4.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link4.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -127,12 +127,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link4.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link4.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint4" type="revolute">
-    <origin xyz="0.29157009 0 -0.066644592" rpy="0 0 0" />
+    <origin xyz="0.437355135 0 -0.099966888" rpy="0 0 0" />
     <parent link="x5a_link3" />
     <child link="x5a_link4" />
     <axis xyz="0 1 0" />
@@ -140,14 +140,14 @@
   </joint>
   <link name="x5a_link5">
     <inertial>
-      <origin xyz="0.004298576 -0.000015455 0.065709188" rpy="0 0 0" />
+      <origin xyz="0.006447864 -2.31825e-05 0.098563782" rpy="0 0 0" />
       <mass value="0.63488" />
       <inertia ixx="0.00083" ixy="0.00000" ixz="0.00007" iyy="0.00082" iyz="0.00000" izz="0.00026" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link5.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link5.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -156,12 +156,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link5.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link5.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint5" type="revolute">
-    <origin xyz="0.080628056 0.0005 -0.102942093" rpy="0 0 0" />
+    <origin xyz="0.120942084 0.00075 -0.154413139" rpy="0 0 0" />
     <parent link="x5a_link4" />
     <child link="x5a_link5" />
     <axis xyz="0 0 1" />
@@ -169,14 +169,14 @@
   </joint>
   <link name="x5a_link6">
     <inertial>
-      <origin xyz="0.049622849 0.000024368 0.000172133" rpy="0 0 0" />
+      <origin xyz="0.0744342735 3.6552e-05 0.0002581995" rpy="0 0 0" />
       <mass value="0.44089" />
       <inertia ixx="0.00038" ixy="0.00000" ixz="0.00000" iyy="0.00028" iyz="0.00000" izz="0.00050" />
     </inertial>
     <visual>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link6.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link6.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
       <material name="black">
         <color rgba="0 0 0 1" />
@@ -185,12 +185,12 @@
     <collision>
       <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/x5a_link6.STL" scale="1.190082 1 1.190082" />
+        <mesh filename="meshes/x5a_link6.STL" scale="1.785123 1.5 1.785123" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_joint6" type="revolute">
-    <origin xyz="0.034452874 0 0.102942093" rpy="-3.1416 0 0" />
+    <origin xyz="0.051679311 0 0.154413139" rpy="-3.1416 0 0" />
     <parent link="x5a_link5" />
     <child link="x5a_link6" />
     <axis xyz="1 0 0" />
@@ -198,29 +198,29 @@
   </joint>
   <link name="x5a_camera_base">
     <visual>
-      <origin xyz="0 0 0.0" rpy="0 0 0" />
+      <origin xyz="0 0 0" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/camera_base.glb" scale="1.190082 1 1.019834623" />
+        <mesh filename="meshes/camera_base.glb" scale="1.785123 1.5 1.52975193" />
       </geometry>
     </visual>
   </link>
   <joint name="x5a_hand_to_camera_mount" type="fixed">
     <parent link="x5a_link6" />
     <child link="x5a_camera_base" />
-    <origin xyz="0.067834674 0 0" rpy="0 0 -3.1416" />
+    <origin xyz="0.101752011 0 0" rpy="0 0 -3.1416" />
   </joint>
   <link name="x5a_camera">
     <visual>
-      <origin rpy="0.0 0.0 -1.5707963267948966" xyz="0.0 0.0 -0.0" />
+      <origin rpy="0.0 0.0 -1.5707963267948966" xyz="0 0 -0" />
       <geometry>
-        <mesh filename="meshes/camera.glb" />
+        <mesh filename="meshes/camera.glb" scale="1.5 1.5 1.5" />
       </geometry>
     </visual>
   </link>
   <joint name="x5a_camera_joint" type="fixed">
     <parent link="x5a_camera_base" />
     <child link="x5a_camera" />
-    <origin xyz="-0.032727255 0 0.0595041" rpy="0 0.3491 3.141592653589793" />
+    <origin xyz="-0.0490908825 0 0.08925615" rpy="0 0.3491 3.141592653589793" />
   </joint>
   <link name="x5a_adapter_link">
     <inertial>
@@ -232,7 +232,7 @@
   <joint name="x5a_link6_to_adapter" type="fixed">
     <parent link="x5a_link6" />
     <child link="x5a_adapter_link" />
-    <origin xyz="-0.01 0 0" rpy="0 0 0" />
+    <origin xyz="-0.015 0 0" rpy="0 0 0" />
   </joint>
   <link name="x5a_adapter_left_link">
     <inertial>
@@ -243,17 +243,17 @@
     <visual>
       <origin xyz="0 0 0" rpy="1.5708 0 0" />
       <geometry>
-        <mesh filename="meshes/adapter_left.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/adapter_left.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
       <material name="adapter_gray">
         <color rgba="0.7 0.7 0.7 1" />
       </material>
     </visual>
-    <!-- Second mesh in the same link: edit this origin to tune XenseWS relative to adapter_left. -->
+    
     <visual name="xensews_visual">
-      <origin xyz="0.045 -0.015 -0.01" rpy="3.141593 0 0" />
+      <origin xyz="0.0675 -0.0225 -0.015" rpy="3.141593 0 0" />
       <geometry>
-        <mesh filename="meshes/XenseWS.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/XenseWS.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
       <material name="xensews_gray">
         <color rgba="0.5 0.5 0.5 1" />
@@ -262,23 +262,23 @@
     <collision>
       <origin xyz="0 0 0" rpy="1.5708 0 0" />
       <geometry>
-        <mesh filename="meshes/adapter_left.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/adapter_left.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
     </collision>
-    <!-- Optional: enable this collision if you want XenseWS to participate in collision checks. -->
+    
     <collision name="xensews_collision">
-      <origin xyz="0.045 -0.015 -0.01" rpy="3.141593 0 0" />
+      <origin xyz="0.0675 -0.0225 -0.015" rpy="3.141593 0 0" />
       <geometry>
-        <mesh filename="meshes/XenseWS.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/XenseWS.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
     </collision>
   </link>
   <joint name="x5a_adapter_left_mount" type="prismatic">
     <parent link="x5a_adapter_link" />
     <child link="x5a_adapter_left_link" />
-    <origin xyz="0.103025399 0.04999 0.00670962" rpy="0 0 0" />
+    <origin xyz="0.154538098 0.074985 0.01006443" rpy="0 0 0" />
     <axis xyz="0 1 0" />
-    <limit lower="0.0" upper="0.025" effort="100" velocity="0.2" />
+    <limit lower="-0.015" upper="0.06" effort="100" velocity="0.2" />
   </joint>
   <link name="x5a_adapter_right_link">
     <inertial>
@@ -289,14 +289,14 @@
     <visual>
       <origin xyz="0 0 0" rpy="1.5708 0 0" />
       <geometry>
-        <mesh filename="meshes/adapter_right.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/adapter_right.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
       <material name="adapter_gray" />
     </visual>
         <visual name="xensews_visual">
-      <origin xyz="0.045 0.015 -0.01" rpy="0 0 0" />
+      <origin xyz="0.0675 0.0225 -0.015" rpy="0 0 0" />
       <geometry>
-        <mesh filename="meshes/XenseWS.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/XenseWS.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
       <material name="xensews_gray">
         <color rgba="0.5 0.5 0.5 1" />
@@ -305,22 +305,22 @@
     <collision>
       <origin xyz="0 0 0" rpy="1.5708 0 0" />
       <geometry>
-        <mesh filename="meshes/adapter_right.STL" scale="0.001 0.001 0.001" />
+        <mesh filename="meshes/adapter_right.STL" scale="0.0015 0.0015 0.0015" />
       </geometry>
     </collision>
     <collision name="xensews_right_collision">
-  <origin xyz="0.045 0.015 -0.01" rpy="0 0 0" />
+  <origin xyz="0.0675 0.0225 -0.015" rpy="0 0 0" />
   <geometry>
-    <mesh filename="meshes/XenseWS.STL" scale="0.001 0.001 0.001" />
+    <mesh filename="meshes/XenseWS.STL" scale="0.0015 0.0015 0.0015" />
   </geometry>
 </collision>
   </link>
   <joint name="x5a_adapter_right_mount" type="prismatic">
     <parent link="x5a_adapter_link" />
     <child link="x5a_adapter_right_link" />
-    <origin xyz="0.103025399 -0.0489 0.00670962" rpy="0 0 0" />
+    <origin xyz="0.154538098 -0.07335 0.01006443" rpy="0 0 0" />
     <axis xyz="0 -1 0" />
-    <limit lower="0.0" upper="0.025" effort="100" velocity="0.2" />
+    <limit lower="-0.015" upper="0.06" effort="100" velocity="0.2" />
   </joint>
   <link name="x5a_xensews_gripper_center">
     <inertial>
@@ -332,7 +332,7 @@
   <joint name="x5a_adapter_link_to_xensews_gripper_center" type="fixed">
     <parent link="x5a_adapter_link" />
     <child link="x5a_xensews_gripper_center" />
-    <origin xyz="0.18 0.000545 -0.00329038" rpy="3.1415 0 0" />
+    <origin xyz="0.27 0.0008175 -0.00493557" rpy="3.1415 0 0" />
   </joint>
 
 </robot>
