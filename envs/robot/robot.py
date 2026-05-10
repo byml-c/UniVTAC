@@ -80,12 +80,16 @@ class RobotManager:
 
         if self.robot_type == 'x5a':
             q_offset = [1, 0, 0, 0]
+            # x5a_offset_p = [-0.160, -0.0005, -0.0245] # insert_hole *0.9
+            # x5a_offset_p = [-0.158, -0.0005, -0.012] # insert_tube *0.7
+            x5a_offset_p = [-0.245, -0.0005, -0.0015] 
+ 
             self._offset = Pose(
-                p = [-0.127, -0.0005, -0.055],
+                p=x5a_offset_p,
                 q=q_offset,
             )
             self._offset_pos = torch.tensor(
-                [-0.127, -0.0005, -0.055],
+                x5a_offset_p,
                 device=self.device,
             ).repeat(self.task.num_envs, 1)
             self._offset_rot = torch.tensor(
@@ -218,9 +222,12 @@ class RobotManager:
             )
 
     def plan_arm(self, target_pose:Pose, constraint_pose=None, pre_dis=None, time_dilation_factor=None):
+        current_ee_pose = self.get_ee_pose()
+
         result:MotionGenResult = self.planner.plan_path(
             curr_joint_pos=self.robot.data.joint_pos[0, :self.robot.num_joints-2],
             curr_joint_vel=self.robot.data.joint_vel[0, :self.robot.num_joints-2],
+            current_ee_pose=current_ee_pose,
             target_ee_pose=target_pose,
             real_robot_pose=self.root_pose,
             pre_dis=pre_dis,
@@ -229,6 +236,21 @@ class RobotManager:
         )
         
         if result.success.item():
+            plan_pos = result.interpolated_plan.position.detach()
+            plan_vel = result.interpolated_plan.velocity.detach()
+
+            print(
+                "[DEBUG PLAN_ARM_RESULT]",
+                "target_pose=", target_pose,
+                "num_steps=", plan_pos.shape[0],
+                "plan_pos_shape=", tuple(plan_pos.shape),
+                "first_q=", plan_pos[0].detach().cpu().tolist(),
+                "last_q=", plan_pos[-1].detach().cpu().tolist(),
+                "current_q_before=", self.robot.data.joint_pos[0, :self.robot.num_joints-2].detach().cpu().tolist(),
+                "current_ee_before=", current_ee_pose,
+                "current_gc_before=", self.get_gripper_center_pose(),
+                flush=True,
+            )
             return {
                 'status': 'Success',
                 'num_steps': result.interpolated_plan.position.shape[0],

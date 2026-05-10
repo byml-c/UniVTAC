@@ -237,6 +237,6 @@ def create_x5a_xensews_gripper(data_type: list[str]):
         # Matches the URDF prismatic joint upper limit.
         gripper_max_qpos=0.04,
         tactile_far_plane=28.0,
-        adaptive_grasp_depth_threshold= 25.18,
-        contact_threshold=(25.16, 25.18),
+        adaptive_grasp_depth_threshold= 24.90,
+        contact_threshold = (24.70, 25.00),
     )

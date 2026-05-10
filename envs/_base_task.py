@@ -185,7 +185,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
     ]
 
     robot: RobotCfg = None
-    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'gsmini'
+    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'xensews'
 
     planner_time_dilation_factor: float = 1.0
 

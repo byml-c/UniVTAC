@@ -32,12 +32,22 @@ if TYPE_CHECKING:
     from tacex_uipc.sim import UipcIsaacAttachmentsCfg, UipcSim
     from tacex_uipc import UipcInteractiveScene
 
+
 @configclass
 class TactileCfg:
     name: str = 'tactile_sensor'
     sensor_cfg = None
     gelpad_cfg: UipcObjectCfg = None
     gelpad_attachment_cfg: UipcIsaacAttachmentsCfg = None
+
+# Marker-only visual/observation offset for XenseWS.
+# Positive x moves markers right; negative x moves markers left.
+# Positive y moves markers down; negative y moves markers up.
+# This does not change depth, gelpad attachment, grasp control, or physics.
+XENSEWS_MARKER_SHIFT_PX = {
+    "left_tactile": (-8, -10),
+    "right_tactile": (-8, -10),
+}
 
 def create_gelsight_mini_cfg(
     prim_path: str,
@@ -281,6 +291,56 @@ class VisualTactileSensor:
         )
         self.sensor = GelSightSensor(self.cfg.sensor_cfg, self.gelpad)
         # self.scene.sensors[f'tactile_{self.cfg.name}'] = self.sensor
+
+    def _get_marker_shift_px(self):
+        sensor_type = getattr(
+            self.cfg.sensor_cfg.marker_motion_sim_cfg,
+            "sensor_type",
+            None
+        )
+        if sensor_type != "xensews":
+            return (0, 0)
+        return XENSEWS_MARKER_SHIFT_PX.get(self.name, (0, 0))
+
+    def _shift_image_xy(self, img, dx: int, dy: int):
+        if dx == 0 and dy == 0:
+            return img
+
+        out = torch.zeros_like(img)
+
+        if img.ndim == 2:
+            h, w = img.shape
+            dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+            src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+            dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+            src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+            if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                out[dst_y0:dst_y1, dst_x0:dst_x1] = img[src_y0:src_y1, src_x0:src_x1]
+            return out
+
+        if img.ndim == 3:
+            # HWC layout: last dimension is channel.
+            if img.shape[-1] in (1, 3, 4):
+                h, w = img.shape[0], img.shape[1]
+                dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+                src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+                dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+                src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+                if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                    out[dst_y0:dst_y1, dst_x0:dst_x1, :] = img[src_y0:src_y1, src_x0:src_x1, :]
+                return out
+
+            # CHW layout.
+            h, w = img.shape[-2], img.shape[-1]
+            dst_y0, dst_y1 = max(dy, 0), min(h + dy, h)
+            src_y0, src_y1 = max(-dy, 0), min(h - dy, h)
+            dst_x0, dst_x1 = max(dx, 0), min(w + dx, w)
+            src_x0, src_x1 = max(-dx, 0), min(w - dx, w)
+            if dst_y1 > dst_y0 and dst_x1 > dst_x0:
+                out[:, dst_y0:dst_y1, dst_x0:dst_x1] = img[:, src_y0:src_y1, src_x0:src_x1]
+            return out
+
+        return img
     
     def setup(self):
         self.device = self.uipc_sim.cfg.device
@@ -335,11 +395,18 @@ class VisualTactileSensor:
             if data_type == 'rgb':
                 obs['rgb'] = self.sensor.data.output['tactile_rgb'].squeeze(0)
             elif data_type == 'rgb_marker':
-                obs['rgb_marker'] = self.sensor.data.output['marker_rgb'].squeeze(0)
+                rgb_marker = self.sensor.data.output['marker_rgb'].squeeze(0)
+                dx, dy = self._get_marker_shift_px()
+                obs['rgb_marker'] = self._shift_image_xy(rgb_marker, dx, dy)
             elif data_type == 'depth':
                 obs['depth'] = self.sensor.data.output['height_map'].squeeze(0)
             elif data_type == 'marker':
-                obs['marker'] = self.sensor.data.output['marker_motion'].squeeze(0)
+                marker = self.sensor.data.output['marker_motion'].squeeze(0).clone()
+                dx, dy = self._get_marker_shift_px()
+                if dx != 0 or dy != 0:
+                    marker[..., 0] = marker[..., 0] + dx
+                    marker[..., 1] = marker[..., 1] + dy
+                obs['marker'] = marker
             elif data_type == 'points':
                 obs['points'] = self.get_init_pts()
             elif data_type == 'pose':
@@ -389,9 +456,9 @@ class VisualTactileSensor:
             if not hasattr(self, "depth_debug_count"):
                 self.depth_debug_count = 0
 
-            # 控制打印频率：前 5 次都打，之后每 20 次打一次
-            do_print = self.depth_debug_count < 5 or self.depth_debug_count % 20 == 0
-
+            
+            # do_print = self.depth_debug_count < 5 or self.depth_debug_count % 20 == 0
+            do_print = False
             if do_print:
                 print(
                     "[DBG_ROI_BOX]",
@@ -491,7 +558,6 @@ class VisualTactileSensor:
                 #         )
 
             self.depth_debug_count += 1
-            # ===== ROI DEBUG END =====
             return metric
 
         return torch.min(depth).item()
