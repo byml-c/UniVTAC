@@ -2,7 +2,7 @@ from ._base_task import *
 import numpy as np
 import copy
 
-TASK_VERSION_TAG = "RUNNING_INSERT_TUBE_X5A_SCALE080_N0040_FINAL_STAGE1_SOFT_Y0032"
+TASK_VERSION_TAG = "RUNNING_INSERT_TUBE_X5A_STAGE2_HOLE_AXIS"
 
 # X5A-friendly scene scaling.
 # Original insert_tube:
@@ -15,7 +15,7 @@ TASK_VERSION_TAG = "RUNNING_INSERT_TUBE_X5A_SCALE080_N0040_FINAL_STAGE1_SOFT_Y00
 #   slot x       = 0.60 * SCENE_X_SCALE = 0.54
 #
 # The slot/hole ratio is intentionally preserved here.
-SCENE_X_SCALE = 0.8
+SCENE_X_SCALE = 0.7
 PRISM_X = 0.40 * SCENE_X_SCALE
 SLOT_X = 0.60 * SCENE_X_SCALE
 
@@ -46,8 +46,8 @@ SETTLE_DOWN_Z = -0.003
 SETTLE_READY_XY = 0.0048
 SETTLE_READY_AXIS_DOT = 0.999
 
-SETTLE_RESCUE_XY = 0.0065
-SETTLE_RESCUE_Y = 0.0040
+SETTLE_RESCUE_XY = 0.0085
+SETTLE_RESCUE_Y = 0.0055
 SETTLE_RESCUE_AXIS_DOT = 0.9978
 SETTLE_RESCUE_MAX_POSITIVE_Z = 0.002
 
@@ -58,14 +58,14 @@ FIRST_FORWARD_DELTA_D = 0.003
 
 # Gate before first_forward. If pre-place is already bad, do not push the tube
 # further; this separates "pre-place already failed" from "first_forward made it worse".
-PRE_FIRST_FORWARD_MAX_XY = 0.010
+PRE_FIRST_FORWARD_MAX_XY = 0.014
 PRE_FIRST_FORWARD_MIN_AXIS_DOT = 0.990
 PRE_FIRST_FORWARD_MAX_POSITIVE_Z = 0.006
 
 FINAL_INSERT_STAGE1_Z = -0.026
-FINAL_INSERT_STAGE2_Z = -0.002
-FINAL_INSERT_TARGET_Z = -0.033
-FINAL_INSERT_STAGE2_MAX_XY = 0.0045
+FINAL_INSERT_STAGE2_Z = -0.011
+FINAL_INSERT_TARGET_Z = -0.031
+FINAL_INSERT_STAGE2_MAX_XY = 0.0060
 FINAL_INSERT_STAGE2_MIN_AXIS_DOT = 0.995
 FINAL_INSERT_TIME_DILATION = 0.3
 FINAL_INSERT_DELAY_STEPS = 8
@@ -74,7 +74,7 @@ PLACE_TIME_DILATION = 0.3
 COARSE_PRE_DIS = 0.08
 COARSE_DIS = 0.04
 FINE_PRE_DIS = 0.04
-FINE_DIS = 0.004
+FINE_DIS = 0.002
 
 # Optional grasp stability debug. Default 0 keeps task flow compact.
 GRASP_HOLD_STEPS = 0
@@ -127,8 +127,8 @@ class Task(BaseTask):
         )
 
         if STRICT_PARAM_VERIFY:
-            assert abs(SCENE_X_SCALE - 0.8) < 1e-9, SCENE_X_SCALE
-            assert abs(PRISM_X - 0.32) < 1e-9, PRISM_X
+            assert abs(SCENE_X_SCALE - 0.7) < 1e-9, SCENE_X_SCALE
+            assert abs(PRISM_X - 0.28) < 1e-9, PRISM_X
             assert abs(SLOT_X - 0.60 * SCENE_X_SCALE) < 1e-9, SLOT_X
             assert abs(LIFT_AFTER_GRASP_Z - 0.04) < 1e-9, LIFT_AFTER_GRASP_Z
             assert DEBUG_STOP_AFTER_PRE_PLACE is False, DEBUG_STOP_AFTER_PRE_PLACE
@@ -136,7 +136,7 @@ class Task(BaseTask):
             assert abs(COARSE_PRE_DIS - 0.08) < 1e-9, COARSE_PRE_DIS
             assert abs(COARSE_DIS - 0.04) < 1e-9, COARSE_DIS
             assert abs(FINE_PRE_DIS - 0.04) < 1e-9, FINE_PRE_DIS
-            assert abs(FINE_DIS - 0.004) < 1e-9, FINE_DIS
+            assert abs(FINE_DIS - 0.002) < 1e-9, FINE_DIS
             assert abs(GRASP_X_OFFSET - 0.0) < 1e-9, GRASP_X_OFFSET
             assert abs(PRE_PLACE_X_OFFSET - (-0.0085)) < 1e-9, PRE_PLACE_X_OFFSET
             assert abs(SETTLE_DOWN_Z - (-0.003)) < 1e-9, SETTLE_DOWN_Z
@@ -144,19 +144,19 @@ class Task(BaseTask):
             assert TRY_NOISE_RANGE == [[0.0010, 0.0040], [0.0010, 0.0040], 0], TRY_NOISE_RANGE
             assert abs(SETTLE_READY_XY - 0.0048) < 1e-9, SETTLE_READY_XY
             assert abs(SETTLE_READY_AXIS_DOT - 0.999) < 1e-9, SETTLE_READY_AXIS_DOT
-            assert abs(SETTLE_RESCUE_XY - 0.0065) < 1e-9, SETTLE_RESCUE_XY
-            assert abs(SETTLE_RESCUE_Y - 0.0040) < 1e-9, SETTLE_RESCUE_Y
+            assert abs(SETTLE_RESCUE_XY - 0.0085) < 1e-9, SETTLE_RESCUE_XY
+            assert abs(SETTLE_RESCUE_Y - 0.0055) < 1e-9, SETTLE_RESCUE_Y
             assert abs(SETTLE_RESCUE_AXIS_DOT - 0.9978) < 1e-9, SETTLE_RESCUE_AXIS_DOT
             assert abs(SETTLE_RESCUE_MAX_POSITIVE_Z - 0.002) < 1e-9, SETTLE_RESCUE_MAX_POSITIVE_Z
             assert abs(FIRST_FORWARD_DIS - 0.006) < 1e-9, FIRST_FORWARD_DIS
             assert abs(FIRST_FORWARD_DELTA_D - 0.003) < 1e-9, FIRST_FORWARD_DELTA_D
-            assert abs(PRE_FIRST_FORWARD_MAX_XY - 0.010) < 1e-9, PRE_FIRST_FORWARD_MAX_XY
+            assert abs(PRE_FIRST_FORWARD_MAX_XY - 0.014) < 1e-9, PRE_FIRST_FORWARD_MAX_XY
             assert abs(PRE_FIRST_FORWARD_MIN_AXIS_DOT - 0.990) < 1e-9, PRE_FIRST_FORWARD_MIN_AXIS_DOT
             assert abs(PRE_FIRST_FORWARD_MAX_POSITIVE_Z - 0.006) < 1e-9, PRE_FIRST_FORWARD_MAX_POSITIVE_Z
             assert abs(FINAL_INSERT_STAGE1_Z - (-0.026)) < 1e-9, FINAL_INSERT_STAGE1_Z
-            assert abs(FINAL_INSERT_STAGE2_Z - (-0.002)) < 1e-9, FINAL_INSERT_STAGE2_Z
-            assert abs(FINAL_INSERT_TARGET_Z - (-0.033)) < 1e-9, FINAL_INSERT_TARGET_Z
-            assert abs(FINAL_INSERT_STAGE2_MAX_XY - 0.0045) < 1e-9, FINAL_INSERT_STAGE2_MAX_XY
+            assert abs(FINAL_INSERT_STAGE2_Z - (-0.011)) < 1e-9, FINAL_INSERT_STAGE2_Z
+            assert abs(FINAL_INSERT_TARGET_Z - (-0.031)) < 1e-9, FINAL_INSERT_TARGET_Z
+            assert abs(FINAL_INSERT_STAGE2_MAX_XY - 0.0060) < 1e-9, FINAL_INSERT_STAGE2_MAX_XY
             assert abs(FINAL_INSERT_STAGE2_MIN_AXIS_DOT - 0.995) < 1e-9, FINAL_INSERT_STAGE2_MIN_AXIS_DOT
 
         super().__init__(cfg=cfg, mode=mode, render_mode=render_mode, **kwargs)

@@ -189,8 +189,8 @@ def create_x5a_xensews_gripper(data_type: list[str]):
                 "x5a_joint6": 0.00,
                 # XenseWS gripper prismatic joints from X5A.urdf.
                 # 0.0 is the closed/default pose; 0.04 is the maximum open pose.
-                "x5a_adapter_left_mount": 0.005,
-                "x5a_adapter_right_mount": 0.005,
+                "x5a_adapter_left_mount": 0.01,
+                "x5a_adapter_right_mount": 0.01,
             }
         ),
     )
@@ -233,10 +233,10 @@ def create_x5a_xensews_gripper(data_type: list[str]):
         tactiles=tactiles,
         # Approximate offset from x5a_link6 to the grasp center.
         # Recalibrate this after the final x5a_link6_to_adapter and mount origins are fixed.
-        gripper_offset=0.131,
+        gripper_offset=0.12,
         # Matches the URDF prismatic joint upper limit.
         gripper_max_qpos=0.04,
         tactile_far_plane=28.0,
-        adaptive_grasp_depth_threshold= 24.90,
-        contact_threshold = (24.70, 25.00),
+        adaptive_grasp_depth_threshold= 25.20,
+        contact_threshold = (25.0, 25.20),
     )

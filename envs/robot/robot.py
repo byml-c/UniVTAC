@@ -82,7 +82,7 @@ class RobotManager:
             q_offset = [1, 0, 0, 0]
             # x5a_offset_p = [-0.160, -0.0005, -0.0245] # insert_hole *0.9
             # x5a_offset_p = [-0.158, -0.0005, -0.012] # insert_tube *0.7
-            x5a_offset_p = [-0.245, -0.0005, -0.0015] 
+            x5a_offset_p = [-0.21, -0.0005, -0.0015] # insert_tube *0.8
  
             self._offset = Pose(
                 p=x5a_offset_p,

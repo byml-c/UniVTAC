@@ -1,4 +1,5 @@
 import torch
+import os
 from envs.utils import data
 import numpy as np
 from tacex import GelSightSensor, GelSightSensorCfg
@@ -191,7 +192,7 @@ def create_xensews_cfg(
             clipping_range=(0.01, 0.028),  # (0.024, 0.034),
         ),
         device="cuda",
-        debug_vis=False,  # for rendering sensor output in the gui
+        debug_vis=True,  # for rendering sensor output in the gui
         update_period=update_period,
         marker_motion_sim_cfg=ManiSkillSimulatorCfg(
             tactile_img_res=resolution,
@@ -290,6 +291,18 @@ class VisualTactileSensor:
             self.cfg.gelpad_attachment_cfg, self.gelpad, self.robot
         )
         self.sensor = GelSightSensor(self.cfg.sensor_cfg, self.gelpad)
+
+        # XenseWS ROI/baseline delta state.
+        # The baseline is captured explicitly at the start of a grasp action
+        # or lazily from the first ROI metric after reset. It is NOT a rolling
+        # previous-frame baseline, so contact delta will not be cancelled out.
+        self.depth_baseline_metric = None
+        self.last_depth_metric = None
+        self.last_depth_baseline_metric = None
+        self.last_depth_delta_metric = None
+        self.last_depth_roi_tag = None
+        self.depth_debug_count = 0
+
         # self.scene.sensors[f'tactile_{self.cfg.name}'] = self.sensor
 
     def _get_marker_shift_px(self):
@@ -415,152 +428,156 @@ class VisualTactileSensor:
     
     def _reset_idx(self):
         self.init_pose_mat = self.get_attach_pose().to_transformation_matrix()
+        self.depth_baseline_metric = None
+        self.last_depth_metric = None
+        self.last_depth_baseline_metric = None
+        self.last_depth_delta_metric = None
+        self.last_depth_roi_tag = None
+        self.depth_debug_count = 0
         # self.gelpad.write_vertex_positions_to_sim(vertex_positions=self.gelpad.init_vertex_pos)
     
     # def get_min_depth(self):
     #     return torch.min(self.sensor.data.output['height_map']).item()
-    def get_min_depth(self):
+    def _get_xensews_roi_box(self, h: int, w: int):
+        """Return the ROI box used by this XenseWS sensor.
+
+        The default keeps your existing split ROI:
+        - left_tactile  -> right_center  (x: 40%~90%)
+        - right_tactile -> left_center   (x: 10%~60%)
+
+        Runtime overrides, without editing code:
+            XENSEWS_ROI=center60
+            XENSEWS_LEFT_ROI=right_center
+            XENSEWS_RIGHT_ROI=left_center
+        """
+        boxes = {
+            "center60": (int(h * 0.20), int(h * 0.80), int(w * 0.20), int(w * 0.80)),
+            "center40": (int(h * 0.30), int(h * 0.70), int(w * 0.30), int(w * 0.70)),
+            "center30": (int(h * 0.35), int(h * 0.65), int(w * 0.35), int(w * 0.65)),
+            "left_center": (int(h * 0.25), int(h * 0.75), int(w * 0.10), int(w * 0.60)),
+            "right_center": (int(h * 0.25), int(h * 0.75), int(w * 0.40), int(w * 0.90)),
+            "upper_center": (int(h * 0.10), int(h * 0.60), int(w * 0.25), int(w * 0.75)),
+            "lower_center": (int(h * 0.40), int(h * 0.90), int(w * 0.25), int(w * 0.75)),
+        }
+
+        default_roi = os.environ.get("XENSEWS_ROI", "").strip()
+        if self.name == "left_tactile":
+            roi_tag = os.environ.get("XENSEWS_LEFT_ROI", default_roi or "right_center").strip()
+        elif self.name == "right_tactile":
+            roi_tag = os.environ.get("XENSEWS_RIGHT_ROI", default_roi or "left_center").strip()
+        else:
+            roi_tag = default_roi or "center40"
+
+        if roi_tag not in boxes:
+            raise ValueError(
+                f"Unknown XenseWS ROI tag: {roi_tag}. "
+                "Use center60/center40/center30/left_center/right_center/"
+                "upper_center/lower_center."
+            )
+        return roi_tag, boxes[roi_tag]
+
+    def _compute_depth_metric(self):
+        """Compute the tactile depth metric used by adaptive grasp.
+
+        For XenseWS, this is the ROI mean you were already using. For other
+        sensors, this preserves the original global min behavior.
+        """
         depth = self.sensor.data.output['height_map'].squeeze(0).float()
 
         sensor_type = getattr(
             self.cfg.sensor_cfg.marker_motion_sim_cfg,
             "sensor_type",
-            None
+            None,
         )
 
         if sensor_type == "xensews":
-            # Avoid fixed invalid/border pixels that dominate global min.
-            # Input shape is usually (H, W), e.g. (240, 320).
             h, w = depth.shape[-2], depth.shape[-1]
-
-            if self.name == "left_tactile":
-                y0, y1 = int(h * 0.25), int(h * 0.75)
-                x0, x1 = int(w * 0.40), int(w * 0.90)
-
-            elif self.name == "right_tactile":
-                y0, y1 = int(h * 0.25), int(h * 0.75)
-                x0, x1 = int(w * 0.10), int(w * 0.60)
-
-            else:
-                # fallback: clean central region
-                y0, y1 = int(h * 0.35), int(h * 0.65)
-                x0, x1 = int(w * 0.35), int(w * 0.65)
-
+            roi_tag, (y0, y1, x0, x1) = self._get_xensews_roi_box(h, w)
             roi = depth[y0:y1, x0:x1].flatten()
-            roi_p05 = torch.quantile(roi, 0.05).item()
-            roi_mean = torch.mean(roi).item()
+            metric = torch.mean(roi)
 
-            # 先保持原控制逻辑不变
-            metric = roi_mean
+            self.last_depth_roi_tag = roi_tag
+            self.last_depth_metric = float(metric.item())
 
-            if not hasattr(self, "depth_debug_count"):
-                self.depth_debug_count = 0
-
-            
-            # do_print = self.depth_debug_count < 5 or self.depth_debug_count % 20 == 0
-            do_print = False
+            debug_roi = os.environ.get("DEBUG_TACTILE_ROI", "0") == "1"
+            debug_every = int(os.environ.get("DEBUG_TACTILE_ROI_EVERY", "20"))
+            do_print = debug_roi and (
+                self.depth_debug_count < 5
+                or (debug_every > 0 and self.depth_debug_count % debug_every == 0)
+            )
             if do_print:
-                print(
-                    "[DBG_ROI_BOX]",
-                    "name=", self.name,
-                    "shape=", tuple(depth.shape),
-                    "center60_y=", (y0, y1),
-                    "center60_x=", (x0, x1),
-                    flush=True,
-                )
-
                 print(
                     "[DBG_XENSEWS_DEPTH_METRIC]",
                     "name=", self.name,
+                    "roi_tag=", roi_tag,
+                    "shape=", tuple(depth.shape),
+                    "box_y=", (y0, y1),
+                    "box_x=", (x0, x1),
                     "global_min=", torch.min(depth).item(),
                     "roi_min=", torch.min(roi).item(),
-                    "roi_p05=", roi_p05,
-                    "roi_mean=", roi_mean,
+                    "roi_p05=", torch.quantile(roi, 0.05).item(),
+                    "roi_mean=", metric.item(),
                     "roi_max=", torch.max(roi).item(),
                     flush=True,
                 )
-
-                # 候选 ROI：用来判断接触斑块到底在哪个区域先变化
-                # def _print_roi_stat(tag, yy0, yy1, xx0, xx1):
-                #     r = depth[yy0:yy1, xx0:xx1].flatten()
-                #     print(
-                #         "[DBG_ROI_CAND]",
-                #         "name=", self.name,
-                #         "tag=", tag,
-                #         "box_y=", (yy0, yy1),
-                #         "box_x=", (xx0, xx1),
-                #         "mean=", torch.mean(r).item(),
-                #         "p05=", torch.quantile(r, 0.05).item(),
-                #         "min=", torch.min(r).item(),
-                #         "max=", torch.max(r).item(),
-                #         flush=True,
-                #     )
-
-                # # 中心不同大小
-                # _print_roi_stat(
-                #     "center60",
-                #     int(h * 0.2), int(h * 0.8),
-                #     int(w * 0.2), int(w * 0.8),
-                # )
-                # _print_roi_stat(
-                #     "center40",
-                #     int(h * 0.3), int(h * 0.7),
-                #     int(w * 0.3), int(w * 0.7),
-                # )
-                # _print_roi_stat(
-                #     "center30",
-                #     int(h * 0.35), int(h * 0.65),
-                #     int(w * 0.35), int(w * 0.65),
-                # )
-
-                # # 左右偏移 ROI：判断接触斑块是不是偏左/偏右
-                # _print_roi_stat(
-                #     "left_center",
-                #     int(h * 0.25), int(h * 0.75),
-                #     int(w * 0.10), int(w * 0.60),
-                # )
-                # _print_roi_stat(
-                #     "right_center",
-                #     int(h * 0.25), int(h * 0.75),
-                #     int(w * 0.40), int(w * 0.90),
-                # )
-
-                # # 上下偏移 ROI：判断接触斑块是不是偏上/偏下
-                # _print_roi_stat(
-                #     "upper_center",
-                #     int(h * 0.10), int(h * 0.60),
-                #     int(w * 0.25), int(w * 0.75),
-                # )
-                # _print_roi_stat(
-                #     "lower_center",
-                #     int(h * 0.40), int(h * 0.90),
-                #     int(w * 0.25), int(w * 0.75),
-                # )
-
-                # # 3x3 分块：判断整张 depth 图哪个 block 最早变化
-                # for yi in range(3):
-                #     for xi in range(3):
-                #         yy0, yy1 = int(h * yi / 3), int(h * (yi + 1) / 3)
-                #         xx0, xx1 = int(w * xi / 3), int(w * (xi + 1) / 3)
-                #         block = depth[yy0:yy1, xx0:xx1].flatten()
-
-                #         print(
-                #             "[DBG_XENSEWS_BLOCK]",
-                #             "name=", self.name,
-                #             "block=", (yi, xi),
-                #             "box_y=", (yy0, yy1),
-                #             "box_x=", (xx0, xx1),
-                #             "mean=", torch.mean(block).item(),
-                #             "p05=", torch.quantile(block, 0.05).item(),
-                #             "min=", torch.min(block).item(),
-                #             "max=", torch.max(block).item(),
-                #             flush=True,
-                #         )
-
             self.depth_debug_count += 1
             return metric
 
-        return torch.min(depth).item()
+        metric = torch.min(depth)
+        self.last_depth_metric = float(metric.item())
+        return metric
+
+    def reset_depth_baseline(self):
+        """Capture a fixed baseline for baseline-relative delta.
+
+        This should be called right before adaptive close starts. If it is not
+        called, get_depth_delta() will lazily capture the first metric as the
+        baseline after reset.
+        """
+        metric = self._compute_depth_metric().detach().clone()
+        self.depth_baseline_metric = metric
+        self.last_depth_baseline_metric = float(metric.item())
+        self.last_depth_delta_metric = 0.0
+        return metric
+
+    def get_depth_delta(self):
+        """Return baseline - current metric.
+
+        Positive delta means the ROI depth moved closer / compressed relative
+        to the fixed baseline.
+        """
+        metric = self._compute_depth_metric()
+        if self.depth_baseline_metric is None:
+            self.depth_baseline_metric = metric.detach().clone()
+
+        baseline = self.depth_baseline_metric.to(metric.device)
+        delta = baseline - metric
+
+        self.last_depth_baseline_metric = float(baseline.item())
+        self.last_depth_delta_metric = float(delta.item())
+
+        debug_delta = os.environ.get("DEBUG_TACTILE_DELTA", "0") == "1"
+        debug_every = int(os.environ.get("DEBUG_TACTILE_DELTA_EVERY", "20"))
+        do_print = debug_delta and (
+            self.depth_debug_count < 5
+            or (debug_every > 0 and self.depth_debug_count % debug_every == 0)
+        )
+        if do_print:
+            print(
+                "[DBG_XENSEWS_ROI_DELTA]",
+                "name=", self.name,
+                "roi_tag=", self.last_depth_roi_tag,
+                "baseline=", self.last_depth_baseline_metric,
+                "current=", self.last_depth_metric,
+                "delta=", self.last_depth_delta_metric,
+                flush=True,
+            )
+        return delta
+
+    def get_min_depth(self):
+        # Kept for compatibility with the original base task. For XenseWS this
+        # still returns your ROI mean, not global min.
+        return self._compute_depth_metric().item()
 
 class TactileManager:
     def __init__(self, cfg_list: list[TactileCfg], task:'BaseTask'):
@@ -596,6 +613,37 @@ class TactileManager:
         for tact in self.tactiles.values():
             depth.append(tact.get_min_depth())
         return torch.tensor(depth, dtype=torch.float32, device=self.task.device)
+
+    def reset_depth_baseline(self):
+        self.task._update_render()
+        baselines = []
+        for tact in self.tactiles.values():
+            if hasattr(tact, "reset_depth_baseline"):
+                baselines.append(tact.reset_depth_baseline().item())
+            else:
+                baselines.append(tact.get_min_depth())
+        return torch.tensor(baselines, dtype=torch.float32, device=self.task.device)
+
+    def get_depth_delta(self):
+        self.task._update_render()
+        deltas = []
+        for tact in self.tactiles.values():
+            if hasattr(tact, "get_depth_delta"):
+                deltas.append(tact.get_depth_delta().item())
+            else:
+                deltas.append(0.0)
+        return torch.tensor(deltas, dtype=torch.float32, device=self.task.device)
+
+    def get_depth_debug_state(self):
+        state = {}
+        for name, tact in self.tactiles.items():
+            state[name] = {
+                "roi": getattr(tact, "last_depth_roi_tag", None),
+                "baseline": getattr(tact, "last_depth_baseline_metric", None),
+                "metric": getattr(tact, "last_depth_metric", None),
+                "delta": getattr(tact, "last_depth_delta_metric", None),
+            }
+        return state
 
     def _reset_idx(self):
         for tact in self.tactiles.values():
