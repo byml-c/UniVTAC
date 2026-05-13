@@ -1,83 +1,122 @@
+# cuRobo robot config aligned with X5A_XenseWS.usda and X5A.urdf link/joint names.
+# Replace assets/embodiments/ARX-X5/curobo.yml with this file.
 robot_cfg:
   kinematics:
-    use_usd_kinematics: False
-    usd_path: "/home/maki/UniVTAC/third_party/TacEx/source/tacex_assets/tacex_assets/data/Robots/ARX-X5/XenseWS/X5A_XenseWS.usd"
-    usd_robot_root: "/"
+    use_usd_kinematics: false
+    usd_path: /home/maki/UniVTAC/third_party/TacEx/source/tacex_assets/tacex_assets/data/Robots/ARX-X5/XenseWS/X5A_XenseWS.usd
+    usd_robot_root: /Robot
     isaac_usd_path: null
     usd_flip_joints: {}
     usd_flip_joint_limits: {}
-
-    urdf_path: "/home/maki/UniVTAC/assets/embodiments/ARX-X5/X5A.urdf"
+    urdf_path: /home/maki/UniVTAC/assets/embodiments/ARX-X5/X5A.urdf
     asset_root_path: null
-
-    base_link: "x5a_link0"
-    ee_link: "x5a_link6"
-
-    # The left/right adapter links are side branches under x5a_adapter_link.
-    # They are not on the serial kinematic chain from base_link to ee_link, so their prismatic
-    # joints are not in cuRobo joint_data. Do not lock them in cuRobo arm planning.
-    # Approximate the XenseWS tool collision under x5a_adapter_link instead.
-    collision_link_names: [
-        "x5a_link0",
-        "x5a_link1",
-        "x5a_link2",
-        "x5a_link3",
-        "x5a_link4",
-        "x5a_link5",
-        "x5a_link6",
-        "x5a_adapter_link"
-      ]
+    base_link: x5a_link0
+    ee_link: x5a_link6
+    collision_link_names:
+    - x5a_link0
+    - x5a_link1
+    - x5a_link2
+    - x5a_link3
+    - x5a_link4
+    - x5a_link5
+    - x5a_link6
+    - x5a_adapter_link
     collision_spheres: /home/maki/UniVTAC/assets/embodiments/ARX-X5/collision_X5A.yml
     collision_sphere_buffer: 0.0
     extra_collision_spheres: null
-    use_global_cumul: True
-
+    use_global_cumul: true
     self_collision_ignore:
-      {
-        "x5a_link0": ["x5a_link1", "x5a_link2", "x5a_link3"],
-        "x5a_link1": ["x5a_link2", "x5a_link3"],
-        "x5a_link2": ["x5a_link3", "x5a_link4"],
-        "x5a_link3": ["x5a_link4", "x5a_link5", "x5a_link6"],
-        "x5a_link4": ["x5a_link5", "x5a_link6"],
-        "x5a_link5": ["x5a_link6", "x5a_adapter_link"],
-        "x5a_link6": ["x5a_link5", "x5a_adapter_link"],
-        "x5a_adapter_link": ["x5a_link5", "x5a_link6"],
-      }
-
+      x5a_link0:
+      - x5a_link1
+      - x5a_link2
+      - x5a_link3
+      x5a_link1:
+      - x5a_link0
+      - x5a_link2
+      - x5a_link3
+      x5a_link2:
+      - x5a_link0
+      - x5a_link1
+      - x5a_link3
+      - x5a_link4
+      x5a_link3:
+      - x5a_link0
+      - x5a_link1
+      - x5a_link2
+      - x5a_link4
+      - x5a_link5
+      - x5a_link6
+      x5a_link4:
+      - x5a_link2
+      - x5a_link3
+      - x5a_link5
+      - x5a_link6
+      x5a_link5:
+      - x5a_link3
+      - x5a_link4
+      - x5a_link6
+      - x5a_adapter_link
+      x5a_link6:
+      - x5a_link3
+      - x5a_link4
+      - x5a_link5
+      - x5a_adapter_link
+      x5a_adapter_link:
+      - x5a_link5
+      - x5a_link6
     self_collision_buffer:
-      {
-        "x5a_link0": 0.0,
-        "x5a_link1": 0.0,
-        "x5a_link2": 0.0,
-        "x5a_link3": 0.0,
-        "x5a_link4": 0.0,
-        "x5a_link5": 0.0,
-        "x5a_link6": 0.0,
-        "x5a_adapter_link": 0.0,
-      }
-
-    mesh_link_names: [
-        "x5a_link0",
-        "x5a_link1",
-        "x5a_link2",
-        "x5a_link3",
-        "x5a_link4",
-        "x5a_link5",
-        "x5a_link6",
-        "x5a_adapter_link"
-      ]
-
+      x5a_link0: 0.0
+      x5a_link1: 0.0
+      x5a_link2: 0.0
+      x5a_link3: 0.0
+      x5a_link4: 0.0
+      x5a_link5: 0.0
+      x5a_link6: 0.0
+      x5a_adapter_link: 0.0
+    mesh_link_names:
+    - x5a_link0
+    - x5a_link1
+    - x5a_link2
+    - x5a_link3
+    - x5a_link4
+    - x5a_link5
+    - x5a_link6
+    - x5a_adapter_link
     lock_joints: {}
-
     extra_links: null
-
     cspace:
-      joint_names: ["x5a_joint1", "x5a_joint2", "x5a_joint3", "x5a_joint4", "x5a_joint5", "x5a_joint6"]
-      retract_config: [0.19, 0.49, 0.71, -0.52, 0.04, 0.00]
-      null_space_weight: [1, 1, 1, 1, 1, 1]
-      cspace_distance_weight: [1, 1, 1, 1, 1, 1]
+      joint_names:
+      - x5a_joint1
+      - x5a_joint2
+      - x5a_joint3
+      - x5a_joint4
+      - x5a_joint5
+      - x5a_joint6
+      retract_config:
+      - 0.19
+      - 0.49
+      - 0.71
+      - -0.52
+      - 0.04
+      - 0.0
+      null_space_weight:
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      cspace_distance_weight:
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
+      - 1
       max_acceleration: 15.0
       max_jerk: 500.0
-
 planner:
-  frame_bias: [0.0, 0.0, 0.0]
+  frame_bias:
+  - 0.0
+  - 0.0
+  - 0.0
