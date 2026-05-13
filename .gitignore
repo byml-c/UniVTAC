@@ -20,5 +20,6 @@ policy/ACT_UniT
 /.codex
 /third_party
 !/third_party/TacEx
+!/third_party/TacEx/source/tacex_assets/tacex_assets/data/Robots/ARX-X5/XenseWS
 
 /assets/embodiments/ARX-X5
