@@ -49,7 +49,7 @@ class XenseWSCfg(GelSightSensorCfg):
     optical_sim_cfg = TaximSimulatorCfg(
         calib_folder_path=f"{TACEX_ASSETS_DATA_DIR}/Sensors/GelSight_Mini/calibs/640x480",
         gelpad_height=gelpad_dimensions.height,
-        gelpad_to_camera_min_distance=0.0230,
+        gelpad_to_camera_min_distance=0.0268,
         with_shadow=False,
         tactile_img_res=(320, 160),
         device="cuda",

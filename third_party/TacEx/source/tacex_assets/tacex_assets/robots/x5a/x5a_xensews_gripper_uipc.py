@@ -50,15 +50,15 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
             joint_names_expr=["x5a_joint[1-3]"],
             effort_limit_sim=100.0,
             velocity_limit_sim=1000.0,
-            stiffness=625.0,
-            damping=50.0,
+            stiffness=80.0,
+            damping=4.0,
         ),
         "x5a_forearm": ImplicitActuatorCfg(
             joint_names_expr=["x5a_joint[4-6]"],
             effort_limit_sim=100.0,
             velocity_limit_sim=1000.0,
-            stiffness=625.0,
-            damping=200.0,
+            stiffness=80.0,
+            damping=4.0,
         ),
         "x5a_gripper": ImplicitActuatorCfg(
             joint_names_expr=[
@@ -67,8 +67,8 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
             ],
             effort_limit_sim=1000.0,
             velocity_limit_sim=0.2,
-            stiffness=625.0,
-            damping=50.0,
+            stiffness=2e3,
+            damping=1e2,
         ),
     },
     soft_joint_pos_limit_factor=1.0,
@@ -79,7 +79,7 @@ X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG = ArticulationCfg(
 X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG = X5A_ARM_XENSEWS_GRIPPER_UIPC_HIGH_RES_CFG.copy()
 
 X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.spawn.rigid_props.disable_gravity = True
-X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_shoulder"].stiffness = 2000.0
-X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_shoulder"].damping = 400.0
-X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_forearm"].stiffness = 2000.0
-X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_forearm"].damping = 400.0
+X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_shoulder"].stiffness = 400.0
+X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_shoulder"].damping = 80.0
+X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_forearm"].stiffness = 400.0
+X5A_ARM_XENSEWS_GRIPPER_HIGH_PD_HIGH_RES_UIPC_CFG.actuators["x5a_forearm"].damping = 80.0

@@ -11,7 +11,7 @@ class Task(BaseTask):
         super().__init__(cfg, mode, render_mode, **kwargs)
     
     def create_actors(self):
-        wall_pose = Pose([0.75, 0.0, 0.005], [1, 0, 0, 0])
+        wall_pose = Pose([0.6, 0.0, 0.005], [1, 0, 0, 0])
         bottle_pose = wall_pose.add_bias([-0.08, 0.0, 0.03])
 
         self.wall = self._actor_manager.add_from_usd_file(

@@ -189,7 +189,7 @@ def create_xensews_cfg(
             update_period=update_period,
             resolution=resolution,
             data_types=["depth", "rgb"],
-            clipping_range=(0.01, 0.028),  # (0.024, 0.034),
+            clipping_range=(0.025, 0.029),  # (0.024, 0.034),
         ),
         device="cuda",
         debug_vis=True,  # for rendering sensor output in the gui
@@ -436,8 +436,18 @@ class VisualTactileSensor:
         self.depth_debug_count = 0
         # self.gelpad.write_vertex_positions_to_sim(vertex_positions=self.gelpad.init_vertex_pos)
     
+    def render_depth_debug(self, depth_img):
+        import cv2
+        if isinstance(depth_img, torch.Tensor):
+            depth_img = depth_img.cpu().numpy()
+        depth_img = depth_img.astype(np.float32)
+        d_min, d_max = np.min(depth_img), np.max(depth_img)
+        depth_img = ((depth_img - d_min) / (d_max - d_min + 1e-8) * 255).astype(np.uint8)
+        depth_vis = cv2.applyColorMap(depth_img, cv2.COLORMAP_JET)
+        cv2.imwrite(f"debug_{self.name}_depth.png", depth_vis)
+    
     # def get_min_depth(self):
-    #     return torch.min(self.sensor.data.output['height_map']).item()
+    #     return torch.min(self.sensor.data.output[ 'height_map']).item()
     def _get_xensews_roi_box(self, h: int, w: int):
         """Return the ROI box used by this XenseWS sensor.
 

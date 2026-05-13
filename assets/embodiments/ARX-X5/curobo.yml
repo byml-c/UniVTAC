@@ -3,12 +3,12 @@
 robot_cfg:
   kinematics:
     use_usd_kinematics: false
-    usd_path: /home/maki/UniVTAC/third_party/TacEx/source/tacex_assets/tacex_assets/data/Robots/ARX-X5/XenseWS/X5A_XenseWS.usd
+    usd_path: X5A.usd
     usd_robot_root: /Robot
     isaac_usd_path: null
     usd_flip_joints: {}
     usd_flip_joint_limits: {}
-    urdf_path: /home/maki/UniVTAC/assets/embodiments/ARX-X5/X5A.urdf
+    urdf_path: X5A.urdf
     asset_root_path: null
     base_link: x5a_link0
     ee_link: x5a_link6
@@ -21,7 +21,7 @@ robot_cfg:
     - x5a_link5
     - x5a_link6
     - x5a_adapter_link
-    collision_spheres: /home/maki/UniVTAC/assets/embodiments/ARX-X5/collision_X5A.yml
+    collision_spheres: collision_X5A.yml
     collision_sphere_buffer: 0.0
     extra_collision_spheres: null
     use_global_cumul: true

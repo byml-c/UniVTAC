@@ -1120,207 +1120,30 @@ class BaseTask(UipcRLEnv):
 
 
     def adaptive_set_gripper(self, qpos, depth_threshold:float=None):
-        initial_tactile_depth = self._tactile_manager.get_min_depth()
-        print(
-            "[DEBUG adaptive input]",
-            "sensor=", self.cfg.tactile_sensor_type,
-            "current_qpos=", self._robot_manager.get_gripper_qpos(),
-            "target_qpos=", qpos,
-            "input_depth_threshold=", depth_threshold,
-            "cfg_threshold=", self.cfg.adaptive_grasp_depth_threshold,
-            "robot_threshold=", self.cfg.robot.adaptive_grasp_depth_threshold,
-            "far_plane=", self.cfg.robot.tactile_far_plane,
-            "min_depth=", initial_tactile_depth,
-            flush=True,
-        )
         max_steps = 1000
         default_step, contact_step = 0.0005, 0.00005
         last_qpos = self._robot_manager.get_gripper_qpos()
-        print(
-            "[DEBUG adaptive_set_gripper]",
-            "current_qpos=", last_qpos,
-            "target_qpos=", qpos,
-            "depth_threshold=", depth_threshold,
-            flush=True,
-        )
-
-        max_depth = self.cfg.robot.tactile_far_plane * torch.ones_like(initial_tactile_depth)  # mm
+        max_depth = self.cfg.robot.tactile_far_plane \
+            * torch.ones_like(self._tactile_manager.get_min_depth()) # mm
         if depth_threshold is not None:
             depth_threshold = depth_threshold * torch.ones_like(max_depth)
-
         direct = 'open' if self._robot_manager.get_gripper_qpos() < qpos else 'close'
-        print("[DEBUG adaptive_set_gripper] direct=", direct, flush=True)
-        self._debug_print_x5a_adapter_state(tag="adaptive_start", force=True)
-
-        # Keep original behavior for all non-XenseWS sensors. For XenseWS, use
-        # baseline-relative ROI delta by default, because absolute depth baselines
-        # shift when the viewport/ROI changes.
-        env_use_delta = os.environ.get("XENSEWS_USE_DELTA_GRASP", None)
-        if env_use_delta is None:
-            cfg_use_delta = bool(getattr(self.cfg, "xensews_use_delta_grasp", False))
-        else:
-            cfg_use_delta = env_use_delta == "1"
-
-        use_xensews_delta = (
-            self.cfg.tactile_sensor_type == "xensews"
-            and direct == "close"
-            and cfg_use_delta
-            and hasattr(self._tactile_manager, "reset_depth_baseline")
-            and hasattr(self._tactile_manager, "get_depth_delta")
-        )
-
-        tactile_baseline = None
-        delta_threshold = None
-        over_delta_threshold = None
-        stop_mode = str(os.environ.get(
-            "XENSEWS_DELTA_STOP_MODE",
-            getattr(self.cfg, "xensews_delta_grasp_stop_mode", "all"),
-        )).lower()
-        if stop_mode not in ("all", "any"):
-            stop_mode = "all"
-
-        if use_xensews_delta:
-            tactile_baseline = self._tactile_manager.reset_depth_baseline()
-            names = list(getattr(self._tactile_manager, "tactiles", {}).keys())
-
-            default_delta_th = float(os.environ.get(
-                "XENSEWS_DELTA_TH",
-                getattr(self.cfg, "xensews_delta_grasp_threshold", 0.10),
-            ))
-            left_delta_th = float(os.environ.get("XENSEWS_LEFT_DELTA_TH", default_delta_th))
-            right_delta_th = float(os.environ.get("XENSEWS_RIGHT_DELTA_TH", default_delta_th))
-            over_delta_threshold = float(os.environ.get(
-                "XENSEWS_OVER_DELTA_TH",
-                getattr(self.cfg, "xensews_over_delta_threshold", 0.60),
-            ))
-
-            th_list = []
-            for name in names:
-                if name == "left_tactile":
-                    th_list.append(left_delta_th)
-                elif name == "right_tactile":
-                    th_list.append(right_delta_th)
-                else:
-                    th_list.append(default_delta_th)
-            delta_threshold = torch.tensor(th_list, dtype=torch.float32, device=self.device)
-
-            print(
-                "[DEBUG XENSEWS_DELTA_GRASP INIT]",
-                "names=", names,
-                "baseline=", tactile_baseline,
-                "delta_threshold=", delta_threshold,
-                "stop_mode=", stop_mode,
-                "over_delta_threshold=", over_delta_threshold,
-                "debug_state=", self._tactile_manager.get_depth_debug_state()
-                    if hasattr(self._tactile_manager, "get_depth_debug_state") else None,
-                flush=True,
-            )
 
         step_size = contact_step if direct == 'open' else -default_step
         for i in range(max_steps):
             current_qpos = self._robot_manager.get_gripper_qpos()
             tactile_depth = self._tactile_manager.get_min_depth()
-            tactile_delta = None
-
-            if i < 3 or i % 20 == 0:
-                self._debug_print_x5a_adapter_state(tag=f"adaptive_i_{i}", force=True)
 
             if direct == 'close':
-                should_log = i < 3 or i % 20 == 0
-                if should_log:
-                    print(
-                        "[DEBUG close before condition]",
-                        "i=", i,
-                        "current_qpos=", current_qpos,
-                        "tactile_depth=", tactile_depth,
-                        "max_depth=", max_depth,
-                        "depth_threshold=", depth_threshold,
-                        "is_far=", torch.allclose(max_depth, tactile_depth, atol=1e-5),
-                        "all_below_threshold=", torch.all(tactile_depth < depth_threshold) if depth_threshold is not None else None,
-                        "min_depth=", torch.min(tactile_depth).item(),
-                        "max_tactile_depth=", torch.max(tactile_depth).item(),
-                        flush=True,
-                    )
                 if torch.allclose(max_depth, tactile_depth, atol=1e-5):
                     step_size = -default_step
-                elif use_xensews_delta:
-                    tactile_delta = self._tactile_manager.get_depth_delta()
-                    delta_reached = tactile_delta >= delta_threshold
-                    overpressure = torch.any(tactile_delta >= over_delta_threshold)
-                    if stop_mode == "any":
-                        reached_stop = torch.any(delta_reached)
-                    else:
-                        reached_stop = torch.all(delta_reached)
-                    should_break = reached_stop or overpressure
-
-                    if should_log or should_break:
-                        print(
-                            "[DEBUG adaptive_set_gripper close delta]",
-                            "i=", i,
-                            "current_qpos=", current_qpos,
-                            "baseline=", tactile_baseline,
-                            "tactile_depth=", tactile_depth,
-                            "delta=", tactile_delta,
-                            "delta_threshold=", delta_threshold,
-                            "delta_reached=", delta_reached,
-                            "stop_mode=", stop_mode,
-                            "over_delta_threshold=", over_delta_threshold,
-                            "overpressure=", overpressure,
-                            "should_break=", should_break,
-                            "debug_state=", self._tactile_manager.get_depth_debug_state()
-                                if hasattr(self._tactile_manager, "get_depth_debug_state") else None,
-                            flush=True,
-                        )
-                    if should_break:
-                        reason = "OVERPRESSURE" if overpressure else "DELTA"
-                        print(
-                            f"[DEBUG adaptive_set_gripper BREAK_BY_{reason}]",
-                            "i=", i,
-                            "current_qpos=", current_qpos,
-                            "baseline=", tactile_baseline,
-                            "tactile_depth=", tactile_depth,
-                            "delta=", tactile_delta,
-                            "delta_threshold=", delta_threshold,
-                            "min_delta=", torch.min(tactile_delta).item(),
-                            "max_delta=", torch.max(tactile_delta).item(),
-                            flush=True,
-                        )
-                        break
-
-                    # Slow down based on the side that has not reached its target yet.
-                    remaining = torch.clamp(delta_threshold - tactile_delta, min=0.0)
-                    positive_remaining = remaining[remaining > 1e-6]
-                    if positive_remaining.numel() > 0:
-                        step_size = -min(torch.min(positive_remaining).item() / 1000.0, contact_step)
-                    else:
-                        step_size = -contact_step
                 elif depth_threshold is not None:
-                    should_break = torch.all(tactile_depth < depth_threshold)
-                    if should_log:
-                        print(
-                            "[DEBUG adaptive_set_gripper close depth]",
-                            "i=", i,
-                            "tactile_depth=", tactile_depth,
-                            "depth_threshold=", depth_threshold,
-                            "should_break=", should_break,
-                            flush=True,
-                        )
-                    if should_break:
-                        print(
-                            "[DEBUG adaptive_set_gripper BREAK_BY_DEPTH]",
-                            "i=", i,
-                            "current_qpos=", current_qpos,
-                            "tactile_depth=", tactile_depth,
-                            "depth_threshold=", depth_threshold,
-                            "min_depth=", torch.min(tactile_depth).item(),
-                            "max_tactile_depth=", torch.max(tactile_depth).item(),
-                            flush=True,
-                        )
+                    if torch.all(tactile_depth < depth_threshold):
                         break
                     else:
                         step_size = - min(
                             torch.min(torch.abs(tactile_depth - depth_threshold)).item()/1000,
-                            contact_step,
+                            contact_step
                         )
                 else:
                     step_size = -default_step
@@ -1333,23 +1156,12 @@ class BaseTask(UipcRLEnv):
                     else:
                         step_size = min(
                             torch.min(torch.abs(depth_threshold - tactile_depth)).item()/1000,
-                            contact_step,
+                            contact_step
                         )
                 else:
                     step_size = default_step
 
             if np.allclose(current_qpos, qpos, atol=1e-5):
-                print(
-                    "[DEBUG adaptive_set_gripper BREAK_BY_TARGET]",
-                    "i=", i,
-                    "current_qpos=", current_qpos,
-                    "target_qpos=", qpos,
-                    "tactile_depth=", tactile_depth,
-                    "tactile_delta=", tactile_delta,
-                    "depth_threshold=", depth_threshold,
-                    "delta_threshold=", delta_threshold,
-                    flush=True,
-                )
                 break
             elif np.abs(current_qpos - qpos) < np.abs(step_size):
                 target_qpos = qpos
@@ -1361,17 +1173,6 @@ class BaseTask(UipcRLEnv):
             yield position, velocity, True
 
         final_position = torch.tensor([last_qpos, last_qpos], device=self._robot_manager.device)
-        final_qpos = self._robot_manager.get_gripper_qpos()
-        self._debug_print_x5a_adapter_state(tag="adaptive_end", force=True)
-        print(
-            "[DEBUG adaptive_set_gripper END]",
-            "final_qpos=", final_qpos,
-            "final_position=", final_position,
-            "last_qpos=", last_qpos,
-            "target_qpos=", qpos,
-            "direct=", direct,
-            flush=True,
-        )
         yield final_position, torch.zeros_like(final_position), False
 
     def gravity_rotate(self, actor:Actor, target_vec, target_axis=[0, 0, 1], is_save=True):
