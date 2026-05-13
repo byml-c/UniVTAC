@@ -18,7 +18,7 @@ traj*
 policy/ACT_UniT
 /*.ipynb
 /.codex
-/third_party
+/third_party/*
 !/third_party/TacEx
 
 /assets/embodiments/ARX-X5

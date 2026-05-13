@@ -200,7 +200,7 @@ def print_frame(data_root, seed, frame=-1):
 
 def main(task, name, config, seed, is_cache):
     global data_length
-    data_root = f'./data/{config}/{name}'
+    data_root = f'./data/{name}/{config}'
     if task == 'video':
         if is_cache:
             data_list = read_from_cache(data_root, seed)
