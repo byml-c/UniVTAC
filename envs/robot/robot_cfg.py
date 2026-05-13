@@ -155,7 +155,7 @@ def create_franka_xensews_gripper(data_type:list[str]):
         tactiles=tactiles,
         gripper_offset=0.125,
         gripper_max_qpos=0.039,
-        tactile_far_plane=28.0,
+        tactile_far_plane=30.0,
         adaptive_grasp_depth_threshold=24.8,
         contact_threshold=(24.5, 25.0)
     )

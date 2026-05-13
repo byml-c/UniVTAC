@@ -1,5 +1,4 @@
 import sys
-import os
 import json
 import time
 import torch
@@ -76,7 +75,7 @@ from .sensors.tactile import TactileManager, TactileCfg, create_tactile_cfg
 @configclass
 class BaseTaskCfg(DirectRLEnvCfg):
     logger_level = "error"
-    debug_vis = True
+    debug_vis = False
 
     # viewer settings
     viewer: ViewerCfg = ViewerCfg()
@@ -159,20 +158,6 @@ class BaseTaskCfg(DirectRLEnvCfg):
 
     use_adaptive_grasp: bool = True
     adaptive_grasp_depth_threshold = None # in mm
-
-    # XenseWS-only baseline-relative adaptive grasp stop.
-    # Original tactile sensors keep the original absolute-depth behavior.
-    # Env overrides:
-    #   XENSEWS_USE_DELTA_GRASP=0/1
-    #   XENSEWS_DELTA_TH=0.10
-    #   XENSEWS_LEFT_DELTA_TH=0.10
-    #   XENSEWS_RIGHT_DELTA_TH=0.10
-    #   XENSEWS_DELTA_STOP_MODE=all|any
-    #   XENSEWS_OVER_DELTA_TH=0.60
-    xensews_use_delta_grasp: bool = True
-    xensews_delta_grasp_threshold: float = 0.10
-    xensews_delta_grasp_stop_mode: str = "all"
-    xensews_over_delta_threshold: float = 0.60
     reset_time_limit: float = 120.0  # in seconds
 
     cameras: list[CameraCfg] = [
@@ -200,7 +185,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
     ]
 
     robot: RobotCfg = None
-    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'xensews'
+    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'gsmini'
 
     planner_time_dilation_factor: float = 1.0
 
@@ -260,16 +245,6 @@ class BaseTask(UipcRLEnv):
         self._robot_manager.setup()
         self._camera_manager.setup()
         self._tactile_manager.setup()
-        try:
-            print(
-                "\n[DEBUG TACTILE AFTER setup]",
-                "sensor=", self.cfg.tactile_sensor_type,
-                "min_depth=", self._tactile_manager.get_min_depth(),
-                "far_plane=", self.cfg.robot.tactile_far_plane,
-                flush=True,
-            )   
-        except Exception as e:
-            print("[DEBUG TACTILE AFTER setup ERROR]", repr(e), flush=True)
         self._tactile_manager.set_debug_vis(self.cfg.debug_vis)
         self.set_debug_vis(self.cfg.debug_vis)
     
@@ -280,28 +255,16 @@ class BaseTask(UipcRLEnv):
         elif cfg.tactile_sensor_type == 'gf225':
             cfg.robot = create_franka_gf225_gripper(data_type=data_type)
         elif cfg.tactile_sensor_type == 'xensews':
-            cfg.robot = create_x5a_xensews_gripper(data_type=data_type)
-            # cfg.robot = create_franka_xensews_gripper(data_type=data_type)
+            cfg.robot = create_franka_xensews_gripper(data_type=data_type)
         else:
             raise ValueError(f'Unknown tactile sensor type: {cfg.tactile_sensor_type}')
         
         if cfg.adaptive_grasp_depth_threshold is None:
             cfg.adaptive_grasp_depth_threshold = cfg.robot.adaptive_grasp_depth_threshold
-            print(
-                "\n[DEBUG SENSOR CONFIG AFTER load_robot_and_sensors]",
-                "cfg.tactile_sensor_type=", cfg.tactile_sensor_type,
-                "robot_type=", type(cfg.robot),
-                "robot.gripper_offset=", getattr(cfg.robot, "gripper_offset", None),
-                "robot.gripper_max_qpos=", getattr(cfg.robot, "gripper_max_qpos", None),
-                "robot.tactile_far_plane=", getattr(cfg.robot, "tactile_far_plane", None),
-                "robot.adaptive_grasp_depth_threshold=", getattr(cfg.robot, "adaptive_grasp_depth_threshold", None),
-                "cfg.adaptive_grasp_depth_threshold=", cfg.adaptive_grasp_depth_threshold,
-                "robot.contact_threshold=", getattr(cfg.robot, "contact_threshold", None),
-                "robot.tactiles=", getattr(cfg.robot, "tactiles", None),
-                flush=True,
-            )
+        elif isinstance(cfg.adaptive_grasp_depth_threshold, dict):
+            cfg.adaptive_grasp_depth_threshold = cfg.adaptive_grasp_depth_threshold.get(
+                cfg.tactile_sensor_type, cfg.robot.adaptive_grasp_depth_threshold)
         return cfg
-            
  
     def _setup_save(self):
         if self.cfg.save_dir == "auto":
@@ -431,13 +394,7 @@ class BaseTask(UipcRLEnv):
                         f'Timeout: reset exceed time limit of {self.cfg.reset_time_limit} s, cost {reset_test_cost} s.'
                     )
             self._update_render()
-            print(
-            "\n[DEBUG RESET after first _update_render]",
-            "step_count=", self.step_count,
-            "min_depth=", self._tactile_manager.get_min_depth(),
-            "far_plane=", self.cfg.robot.tactile_far_plane,
-            flush=True,
-            )
+
             self.first_frame = self.uipc_sim.world.frame()
             self.uipc_sim.save_frame()
 
@@ -465,19 +422,7 @@ class BaseTask(UipcRLEnv):
                 )
         self._update_render()
 
-        print(
-            "\n[DEBUG RESET before pre_move]",
-            "step_count=", self.step_count,
-            "min_depth=", self._tactile_manager.get_min_depth(),
-            flush=True,
-        )
         self.pre_move()
-        print(
-            "\n[DEBUG RESET after pre_move]",
-            "step_count=", self.step_count,
-            "min_depth=", self._tactile_manager.get_min_depth(),
-            flush=True,
-        )
         self.in_pre_move = False
 
         # update render to avoid artifacts
@@ -684,23 +629,6 @@ class BaseTask(UipcRLEnv):
             obs['observation'] = self._camera_manager.get_observations(self.cfg.obs_data_type['camera'])
         if 'tactile' in self.cfg.obs_data_type:
             obs['tactile'] = self._tactile_manager.get_observations(self.cfg.obs_data_type['tactile'])
-            if self.cfg.tactile_sensor_type == "xensews" and self.step_count % 20 == 0:
-                try:
-                    for name, tac_obs in obs['tactile'].items():
-                        if isinstance(tac_obs, dict) and 'depth' in tac_obs:
-                            d = tac_obs['depth'].float()
-                            print(
-                            "[DBG_TAC_DEPTH_STATS]",
-                            "step=", self.step_count,
-                            "name=", name,
-                            "shape=", tuple(d.shape),
-                            "min=", torch.min(d).item(),
-                            "mean=", torch.mean(d).item(),
-                            "max=", torch.max(d).item(),
-                            flush=True,
-                        )
-                except Exception as e:
-                    print("[DBG_TAC_DEPTH_STATS_ERR]", repr(e), flush=True)
         if 'actor' in self.cfg.obs_data_type:
             obs['actor'] = self._actor_manager.get_observations()
         return obs
@@ -805,24 +733,6 @@ class BaseTask(UipcRLEnv):
                 if self.mode in ['collect', 'eval_test'] or (self.mode == 'eval' and self.in_pre_move):
                     if self.cfg.use_adaptive_grasp:
                         target_pos = self._robot_manager.gripper_percent2qpos(action.target_gripper_pos)
-                        selected_threshold = action.args.get('gripper_depth_threshold', gripper_depth_threshold)
-
-                        print(
-                        "\n[DEBUG MOVE GRIPPER INPUT]",
-                        "atom_id=", self.atom_id,
-                        "tag=", tag,
-                        "action_idx=", idx,
-                        "action.action=", action.action,
-                        "action.target_gripper_pos=", action.target_gripper_pos,
-                        "target_qpos=", target_pos,
-                        "action.args=", action.args,
-                        "move.gripper_depth_threshold=", gripper_depth_threshold,
-                        "selected_threshold=", selected_threshold,
-                        "cfg.adaptive_grasp_depth_threshold=", self.cfg.adaptive_grasp_depth_threshold,
-                        "current_qpos=", self._robot_manager.get_gripper_qpos(),
-                        "current_min_depth=", self._tactile_manager.get_min_depth(),
-                        flush=True,
-                        )
                         control_seq['gripper'] = {
                             'status': 'success',
                             'num_steps': -1,
@@ -874,17 +784,6 @@ class BaseTask(UipcRLEnv):
 
         if gripper_steps == -1: # adaptive grasp
             idx, gripper_active = 0, True
-            print(
-    "\n[DEBUG TAKE_DENSE adaptive start]",
-    "arm_steps=", arm_steps,
-    "gripper_steps=", gripper_steps,
-    "gripper_target=", gripper_seq['target'],
-    "gripper_threshold=", gripper_seq['threshold'],
-    "current_qpos=", self._robot_manager.get_gripper_qpos(),
-    "current_min_depth=", self._tactile_manager.get_min_depth(),
-    "is_save=", is_save,
-    flush=True,
-            )           
             gripper_planner = self.adaptive_set_gripper(
                 gripper_seq['target'], gripper_seq['threshold'])
             while True:
@@ -897,32 +796,8 @@ class BaseTask(UipcRLEnv):
                     )
                 if gripper_active:
                     pos, vel, gripper_active = next(gripper_planner)
-
-                    if idx < 5 or idx % 20 == 0:
-                        print(
-                        "[DEBUG TAKE_DENSE before set_gripper]",
-                        "idx=", idx,
-                        "pos=", pos,
-                        "vel=", vel,
-                        "gripper_active=", gripper_active,
-                        "real_qpos_before=", self._robot_manager.get_gripper_qpos(),
-                        "min_depth_before=", self._tactile_manager.get_min_depth(),
-                        flush=True,
-                        )
-
                     self._robot_manager.set_gripper(pos, vel)
-
                 self._step(is_save)
-
-                if idx < 5 or idx % 20 == 0:
-                    print(
-                    "[DEBUG TAKE_DENSE after _step]",
-                    "idx=", idx,
-                    "real_qpos_after=", self._robot_manager.get_gripper_qpos(),
-                    "min_depth_after=", self._tactile_manager.get_min_depth(),
-                    flush=True,
-                    )
-
                 idx += 1
         else:
             max_control_len = max(arm_steps, gripper_steps)
@@ -980,144 +855,6 @@ class BaseTask(UipcRLEnv):
             self.eval_success = True
 
         return exec_success, self.eval_success
-
-
-    def _debug_print_x5a_adapter_state(self, tag: str = "", force: bool = False):
-        """
-        Debug-only print for X5A adapter joints/links.
-        Does not change gripper control logic.
-
-        Enable:
-            DEBUG_X5A_ADAPTER_STATE=1 python scripts/collect_data_visual.py insert_tube demo --gpu 0
-        Optional:
-            DEBUG_X5A_ADAPTER_EVERY=20
-        """
-        if os.environ.get("DEBUG_X5A_ADAPTER_STATE", "0") != "1":
-            return
-
-        every = int(os.environ.get("DEBUG_X5A_ADAPTER_EVERY", "20"))
-        if (not force) and every > 0 and (self.step_count % every != 0):
-            return
-
-        try:
-            robot = self._robot_manager.robot
-            data = getattr(robot, "data", None)
-
-            joint_names = list(getattr(robot, "joint_names", []))
-            if not joint_names and data is not None:
-                joint_names = list(getattr(data, "joint_names", []))
-
-            body_names = list(getattr(robot, "body_names", []))
-            if not body_names and data is not None:
-                body_names = list(getattr(data, "body_names", []))
-
-            if not getattr(self, "_debug_x5a_adapter_names_printed", False):
-                print(
-                    "[DEBUG X5A_ADAPTER_NAMES]",
-                    "joint_names_adapter=", [n for n in joint_names if "adapter" in n],
-                    "body_names_adapter=", [n for n in body_names if "adapter" in n],
-                    flush=True,
-                )
-                self._debug_x5a_adapter_names_printed = True
-
-            def _find_index(names, key):
-                for idx, name in enumerate(names):
-                    if name == key:
-                        return idx
-                for idx, name in enumerate(names):
-                    if key in name:
-                        return idx
-                return None
-
-            joint_pos = getattr(data, "joint_pos", None) if data is not None else None
-            joint_vel = getattr(data, "joint_vel", None) if data is not None else None
-            body_pos_w = getattr(data, "body_pos_w", None) if data is not None else None
-            body_quat_w = getattr(data, "body_quat_w", None) if data is not None else None
-
-            if joint_pos is None and hasattr(robot, "_root_physx_view"):
-                with suppress(Exception):
-                    joint_pos = robot._root_physx_view.get_dof_positions()
-                with suppress(Exception):
-                    joint_vel = robot._root_physx_view.get_dof_velocities()
-
-            link_tf = None
-            if body_pos_w is None and hasattr(robot, "_root_physx_view"):
-                with suppress(Exception):
-                    link_tf = robot._root_physx_view.get_link_transforms().clone()
-
-            def _scalar_from_tensor(tensor, idx):
-                if tensor is None or idx is None:
-                    return None
-                x = tensor.detach() if hasattr(tensor, "detach") else tensor
-                if x.ndim == 2:
-                    return float(x[0, idx].item())
-                if x.ndim == 1:
-                    return float(x[idx].item())
-                return None
-
-            def _vec_from_tensor(tensor, idx, n=3):
-                if tensor is None or idx is None:
-                    return None
-                x = tensor.detach() if hasattr(tensor, "detach") else tensor
-                if x.ndim == 3:
-                    return [float(v) for v in x[0, idx, :n].cpu().tolist()]
-                if x.ndim == 2:
-                    return [float(v) for v in x[idx, :n].cpu().tolist()]
-                return None
-
-            left_joint_idx = _find_index(joint_names, "x5a_adapter_left_mount")
-            right_joint_idx = _find_index(joint_names, "x5a_adapter_right_mount")
-            left_link_idx = _find_index(body_names, "x5a_adapter_left_link")
-            right_link_idx = _find_index(body_names, "x5a_adapter_right_link")
-
-            left_joint_pos = _scalar_from_tensor(joint_pos, left_joint_idx)
-            right_joint_pos = _scalar_from_tensor(joint_pos, right_joint_idx)
-            left_joint_vel = _scalar_from_tensor(joint_vel, left_joint_idx)
-            right_joint_vel = _scalar_from_tensor(joint_vel, right_joint_idx)
-
-            left_link_pos = _vec_from_tensor(body_pos_w, left_link_idx, n=3)
-            right_link_pos = _vec_from_tensor(body_pos_w, right_link_idx, n=3)
-            left_link_quat = _vec_from_tensor(body_quat_w, left_link_idx, n=4)
-            right_link_quat = _vec_from_tensor(body_quat_w, right_link_idx, n=4)
-
-            if link_tf is not None:
-                left_link_pos = _vec_from_tensor(link_tf[..., 0:3], left_link_idx, n=3)
-                right_link_pos = _vec_from_tensor(link_tf[..., 0:3], right_link_idx, n=3)
-                left_link_quat = _vec_from_tensor(link_tf[..., 3:7], left_link_idx, n=4)
-                right_link_quat = _vec_from_tensor(link_tf[..., 3:7], right_link_idx, n=4)
-
-            link_delta = None
-            if left_link_pos is not None and right_link_pos is not None:
-                link_delta = [float(left_link_pos[i] - right_link_pos[i]) for i in range(3)]
-
-            print(
-                "[DEBUG X5A_ADAPTER_STATE]",
-                "tag=", tag,
-                "step_count=", self.step_count,
-                "gripper_scalar_qpos=", self._robot_manager.get_gripper_qpos(),
-                "left_joint_idx=", left_joint_idx,
-                "right_joint_idx=", right_joint_idx,
-                "left_joint_pos=", left_joint_pos,
-                "right_joint_pos=", right_joint_pos,
-                "joint_pos_diff_left_minus_right=", (
-                    None if left_joint_pos is None or right_joint_pos is None
-                    else left_joint_pos - right_joint_pos
-                ),
-                "left_joint_vel=", left_joint_vel,
-                "right_joint_vel=", right_joint_vel,
-                "left_link_idx=", left_link_idx,
-                "right_link_idx=", right_link_idx,
-                "left_link_pos_w=", left_link_pos,
-                "right_link_pos_w=", right_link_pos,
-                "link_pos_delta_left_minus_right=", link_delta,
-                "left_link_quat_w=", left_link_quat,
-                "right_link_quat_w=", right_link_quat,
-                flush=True,
-            )
-
-        except Exception as e:
-            print("[DEBUG X5A_ADAPTER_STATE_ERR]", repr(e), flush=True)
-
 
     def adaptive_set_gripper(self, qpos, depth_threshold:float=None):
         max_steps = 1000
