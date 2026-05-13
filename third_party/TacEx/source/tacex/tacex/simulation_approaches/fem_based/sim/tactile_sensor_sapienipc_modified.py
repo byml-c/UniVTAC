@@ -252,9 +252,10 @@ class VisionTactileSensorUIPC:
     
     def _gen_marker_weight(self, marker_pts):
         surface_pts = self.init_surface_vertices_camera.cpu().numpy()[:, :2]
+        surface_pts = surface_pts - (surface_pts.min(axis=0) + surface_pts.max(axis=0)) / 2
 
         tri = Delaunay(surface_pts)
-        simplex_idx = tri.find_simplex(marker_pts, tol=1e-6)
+        simplex_idx = tri.find_simplex(marker_pts, tol=1e-5)
         valid_marker_idx = np.flatnonzero(simplex_idx >= 0).astype(np.int32)
         if valid_marker_idx.size != marker_pts.shape[0]:
             raise RuntimeError("Some marker points are outside the convex hull of the surface vertices!")

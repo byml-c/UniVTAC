@@ -4,7 +4,7 @@ import numpy as np
 @configclass
 class TaskCfg(BaseTaskCfg):
     step_lim = 500
-    # adaptive_grasp_depth_threshold = 27.8
+    adaptive_grasp_depth_threshold = {'gsmini': 27.8, 'gf225': 25.6, 'xensews': 25.1}
 
 class Task(BaseTask):
     def __init__(self, cfg: BaseTaskCfg, mode:Literal['collect', 'eval'] = 'collect', render_mode: str|None = None, **kwargs):
@@ -70,7 +70,8 @@ class Task(BaseTask):
 
     def check_mid_success(self):
         rel_pose = self.bottle.get_pose().rebase(self.target_pose)
-        return rel_pose[0] > -0.01
+        return rel_pose[0] > -0.01 \
+            and np.abs(np.dot(rel_pose.to_transformation_matrix()[:3, 0], np.array([0, 0, 1]))) > 0.9
     
     def check_early_stop(self):
         rel_pose = self.bottle.get_pose().rebase(self.target_pose)
