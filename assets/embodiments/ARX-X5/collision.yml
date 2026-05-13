@@ -1,121 +1,247 @@
+# Name-aligned robot collision spheres for X5A_XenseWS.
+# Base arm spheres are from the true-size collision_X5A.yml, with keys renamed to x5a_* to match the USDA/URDF.
+# Tool spheres are approximate and stored under x5a_adapter_link so cuRobo does not need the side-branch gripper joints in cspace.
 collision_spheres:
   x5a_link0:
-    - "center": [-0.002380164, 0.004, 0.033322296]
-      "radius": 0.017898833
-    - "center": [-0.020231394, 0, 0.032132214]
-      "radius": 0.016934867
-    - "center": [0.014280984, 0.012, 0.033322296]
-      "radius": 0.016934867
-    - "center": [0.009520656, -0.016, 0.022611558]
-      "radius": 0.0159709
-    - "center": [0.01785123, -0.009, 0.026181804]
-      "radius": 0.0159709
-    - "center": [-0.01785123, -0.009, 0.024991722]
-      "radius": 0.0159709
-    - "center": [0.020231394, 0.002, 0.024991722]
-      "radius": 0.0159709
-    - "center": [0.00595041, 0.017, 0.02975205]
-      "radius": 0.0159709
+  - center:
+    - -0.002
+    - 0.004
+    - 0.028
+    radius: 0.01504
+  - center:
+    - -0.017
+    - 0.0
+    - 0.027
+    radius: 0.01423
+  - center:
+    - 0.012
+    - 0.012
+    - 0.028
+    radius: 0.01423
+  - center:
+    - 0.008
+    - -0.016
+    - 0.019
+    radius: 0.01342
+  - center:
+    - 0.015
+    - -0.009
+    - 0.022
+    radius: 0.01342
+  - center:
+    - -0.015
+    - -0.009
+    - 0.021
+    radius: 0.01342
+  - center:
+    - 0.017
+    - 0.002
+    - 0.021
+    radius: 0.01342
+  - center:
+    - 0.005
+    - 0.017
+    - 0.025
+    radius: 0.01342
   x5a_link1:
-    - "center": [-0.015471066, -0.035, 0.007140492]
-      "radius": 0.017256189
-    - "center": [0.013090902, -0.035, 0.00595041]
-      "radius": 0.017256189
-    - "center": [0.004760328, -0.035, 0.009520656]
-      "radius": 0.016208917
+  - center:
+    - -0.013
+    - -0.035
+    - 0.006
+    radius: 0.0145
+  - center:
+    - 0.011
+    - -0.035
+    - 0.005
+    radius: 0.0145
+  - center:
+    - 0.004
+    - -0.035
+    - 0.008
+    radius: 0.01362
   x5a_link2:
-    - "center": [-0.305851074, 0, 0]
-      "radius": 0.04760328
-    - "center": [-0.235636236, 0, 0]
-      "radius": 0.03570246
-    - "center": [-0.195173448, 0, 0]
-      "radius": 0.03570246
-    - "center": [-0.010710738, 0.006, -0.01785123]
-      "radius": 0.016149413
-    - "center": [-0.30942132, 0.008, 0.020231394]
-      "radius": 0.016149413
-    - "center": [-0.14876025, 0, 0]
-      "radius": 0.03570246
-    - "center": [-0.098776806, 0, 0]
-      "radius": 0.03570246
-    - "center": [-0.052363608, 0, 0]
-      "radius": 0.03570246
-    - "center": [0, 0, 0]
-      "radius": 0.03570246
+  - center:
+    - -0.257
+    - 0.0
+    - 0.0
+    radius: 0.04
+  - center:
+    - -0.198
+    - 0.0
+    - 0.0
+    radius: 0.03
+  - center:
+    - -0.164
+    - 0.0
+    - 0.0
+    radius: 0.03
+  - center:
+    - -0.009
+    - 0.006
+    - -0.015
+    radius: 0.01357
+  - center:
+    - -0.26
+    - 0.008
+    - 0.017
+    radius: 0.01357
+  - center:
+    - -0.125
+    - 0.0
+    - 0.0
+    radius: 0.03
+  - center:
+    - -0.083
+    - 0.0
+    - 0.0
+    radius: 0.03
+  - center:
+    - -0.044
+    - 0.0
+    - 0.0
+    radius: 0.03
+  - center:
+    - 0.0
+    - 0.0
+    - 0.0
+    radius: 0.03
   x5a_link3:
-    - "center": [0.286809762, -0, -0.066644592]
-      "radius": 0.03570246
-    - "center": [0.234446154, -0, -0.063074346]
-      "radius": 0.02380164
-    - "center": [0.186842874, -0, -0.064264428]
-      "radius": 0.02380164
-    - "center": [0.145190004, -0, -0.06545451]
-      "radius": 0.02380164
-    - "center": [0.128528856, -0, -0.060694182]
-      "radius": 0.02380164
-    - "center": [0.084495822, -0, -0.0595041]
-      "radius": 0.02380164
-    - "center": [0.069024756, -0, -0.060694182]
-      "radius": 0.02380164
+  - center:
+    - 0.241
+    - -0.0
+    - -0.056
+    radius: 0.03
+  - center:
+    - 0.197
+    - -0.0
+    - -0.053
+    radius: 0.02
+  - center:
+    - 0.157
+    - -0.0
+    - -0.054
+    radius: 0.02
+  - center:
+    - 0.122
+    - -0.0
+    - -0.055
+    radius: 0.02
+  - center:
+    - 0.108
+    - -0.0
+    - -0.051
+    radius: 0.02
+  - center:
+    - 0.071
+    - -0.0
+    - -0.05
+    radius: 0.02
+  - center:
+    - 0.058
+    - -0.0
+    - -0.051
+    radius: 0.02
   x5a_link4:
-    - "center": [0.078545412, -0, -0.07735533]
-      "radius": 0.03570246
+  - center:
+    - 0.066
+    - -0.0
+    - -0.065
+    radius: 0.03
   x5a_link5:
-    - "center": [0.002380164, 0, 0.099966888]
-      "radius": 0.03570246
+  - center:
+    - 0.002
+    - 0.0
+    - 0.084
+    radius: 0.03
   x5a_link6:
-    - "center": [0.044033034, 0.001, 0.004760328]
-      "radius": 0.03265585
-    - "center": [0.042842952, 0.004, -0.01190082]
-      "radius": 0.031727586
-    - "center": [0.042842952, -0.012, 0.003570246]
-      "radius": 0.030787421
-    - "center": [0.08330574, 0.072, 0]
-      "radius": 0.01190082
-    - "center": [0.080925576, 0.047, 0]
-      "radius": 0.01190082
-    - "center": [0.08330574, -0.073, 0]
-      "radius": 0.01190082
-    - "center": [0.082115658, -0.052, 0]
-      "radius": 0.01190082
-    - "center": [0.082115658, 0.025, 0]
-      "radius": 0.01190082
-    - "center": [0.084495822, -0.036, 0]
-      "radius": 0.01190082
-
-  # Tool / XenseWS collision approximation.
-  # XenseWS is embedded as mesh inside x5a_adapter_left_link and x5a_adapter_right_link,
-  # so its spheres must be under those links, not under a nonexistent XenseWS link.
+  - center:
+    - 0.037
+    - 0.001
+    - 0.004
+    radius: 0.02744
+  - center:
+    - 0.036
+    - 0.004
+    - -0.01
+    radius: 0.02666
+  - center:
+    - 0.036
+    - -0.012
+    - 0.003
+    radius: 0.02587
+  - center:
+    - 0.07
+    - 0.072
+    - 0.0
+    radius: 0.01
+  - center:
+    - 0.068
+    - 0.047
+    - 0.0
+    radius: 0.01
+  - center:
+    - 0.07
+    - -0.073
+    - 0.0
+    radius: 0.01
+  - center:
+    - 0.069
+    - -0.052
+    - 0.0
+    radius: 0.01
+  - center:
+    - 0.069
+    - 0.025
+    - 0.0
+    radius: 0.01
+  - center:
+    - 0.071
+    - -0.036
+    - 0.0
+    radius: 0.01
   x5a_adapter_link:
-    - "center": [0.0, 0.0, 0.0]
-      "radius": 0.018
-
-  x5a_adapter_left_link:
-    # Adapter body approximation.
-    - "center": [0.0, 0.0, 0.0]
-      "radius": 0.025
-    - "center": [0.035, 0.0, 0.0]
-      "radius": 0.018
-    # Embedded XenseWS.STL visual/collision origin in URDF:
-    # <origin xyz="0.045 -0.015 -0.01" rpy="3.141593 0 0"/>
-    - "center": [0.045, -0.015, -0.010]
-      "radius": 0.028
-    - "center": [0.065, -0.015, -0.010]
-      "radius": 0.020
-    - "center": [0.025, -0.015, -0.010]
-      "radius": 0.020
-
-  x5a_adapter_right_link:
-    # Adapter body approximation.
-    - "center": [0.0, 0.0, 0.0]
-      "radius": 0.025
-    - "center": [0.035, 0.0, 0.0]
-      "radius": 0.018
-    # Embedded XenseWS.STL visual/collision origin in URDF:
-    # <origin xyz="0.045 0.015 -0.01" rpy="0 0 0"/>
-    - "center": [0.045, 0.015, -0.010]
-      "radius": 0.028
-    - "center": [0.065, 0.015, -0.010]
-      "radius": 0.020
-    - "center": [0.025, 0.015, -0.010]
-      "radius": 0.020
+  - center:
+    - 0.094
+    - 0.0005
+    - 0.014
+    radius: 0.032
+  - center:
+    - 0.093
+    - 0.05
+    - 0.014
+    radius: 0.022
+  - center:
+    - 0.094
+    - -0.0489
+    - 0.014
+    radius: 0.022
+  - center:
+    - 0.0796
+    - 0.035
+    - 0.0008
+    radius: 0.018
+  - center:
+    - 0.0796
+    - -0.0339
+    - 0.0006
+    radius: 0.018
+  - center:
+    - 0.1406
+    - 0.0345
+    - 0.0006
+    radius: 0.03
+  - center:
+    - 0.1426
+    - -0.0339
+    - 0.0006
+    radius: 0.03
+  - center:
+    - 0.165
+    - 0.0345
+    - 0.0006
+    radius: 0.02
+  - center:
+    - 0.166
+    - -0.0339
+    - 0.0006
+    radius: 0.02
