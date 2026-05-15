@@ -22,3 +22,9 @@ policy/ACT_UniT
 !/third_party/TacEx
 
 /assets/embodiments/ARX-X5
+/*.png
+/policy/**/*.png
+/policy/**/*.pkl
+/policy/**/*.ckpt
+
+/.env

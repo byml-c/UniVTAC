@@ -6,7 +6,6 @@ from transformers import AutoProcessor
 
 import openpi.shared.download as download
 
-
 class PaligemmaTokenizer:
 
     def __init__(self, max_len: int = 48):

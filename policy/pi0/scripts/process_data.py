@@ -214,11 +214,12 @@ class Pi0DataPreprocessor(BaseDataPreprocessor):
         if task_prompt:
             return task_prompt
 
-        for path in (self.raw_root_path / "instructions.json", self.raw_root_path.parent / "instructions.json"):
+        for path in (PROJECT_ROOT_PATH / "instructions" / f"{self.task_name}.json", self.raw_root_path.parent / "instructions.json"):
             if path.exists():
                 with open(path, "r") as f:
-                    instructions = json.load(f).get("instructions", [])
+                    instructions = json.load(f).get("instructions", {"seen": []})["seen"]
                 if instructions:
+                    print(f"Found instructions for {self.task_name} at {path}. Sampling one randomly.")
                     return str(np.random.choice(instructions))
 
         return self.task_name.replace("_", " ")

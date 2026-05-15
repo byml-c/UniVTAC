@@ -415,18 +415,243 @@ _CONFIGS = [
     ),
     # pi0_fast_base by lora
     TrainConfig(
-        name="pi0_fast_franka_univtac_lora",
+        name="pi0_fast_franka_univtac_lora_lift_bottle-demo-50",
         model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
         data=LeRobotFrankaDataConfig(
-            repo_id="univtac/lift_bottle-clean-2",  # your datasets repo_id
+            repo_id="univtac/lift_bottle-demo-50",  # your datasets repo_id
             adapt_to_pi=False,
             repack_transforms=_transforms.Group(inputs=[
                 _transforms.RepackTransform({
                     "images": {
                         "cam_head": "observation.images.cam_head",
                         "cam_wrist": "observation.images.cam_wrist",
-                        "tactile_left": "observation.images.tactile_left",
-                        "tactile_right": "observation.images.tactile_right",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_grasp_classify-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/grasp_classify-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_insert_tube-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/insert_tube-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_insert_hole-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/insert_hole-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_insert_HDMI-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/insert_HDMI-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_pull_out_key-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/pull_out_key-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_lift_can-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/lift_can-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
+                    },
+                    "state": "observation.state",
+                    "actions": "action",
+                    "prompt": "prompt",
+                })
+            ]),
+            base_config=DataConfig(
+                local_files_only=True,  # Set to True for local-only datasets.
+                prompt_from_task=True,
+            ),
+        ),
+        freeze_filter=pi0_fast.Pi0FASTConfig(
+            paligemma_variant="gemma_2b_lora",
+        ).get_freeze_filter(),
+        batch_size=32,
+        weight_loader=weight_loaders.CheckpointWeightLoader("s3://openpi-assets/checkpoints/pi0_fast_base/params"),
+        num_train_steps=30000,
+        fsdp_devices=1,  # refer line 359
+    ),
+
+    TrainConfig(
+        name="pi0_fast_franka_univtac_lora_put_bottle_in_shelf-demo-50",
+        model=pi0_fast.Pi0FASTConfig(paligemma_variant="gemma_2b_lora"),
+        data=LeRobotFrankaDataConfig(
+            repo_id="univtac/put_bottle_in_shelf-demo-50",  # your datasets repo_id
+            adapt_to_pi=False,
+            repack_transforms=_transforms.Group(inputs=[
+                _transforms.RepackTransform({
+                    "images": {
+                        "cam_head": "observation.images.cam_head",
+                        "cam_wrist": "observation.images.cam_wrist",
+                        # "tactile_left": "observation.images.tactile_left",
+                        # "tactile_right": "observation.images.tactile_right",
                     },
                     "state": "observation.state",
                     "actions": "action",
@@ -521,6 +746,12 @@ def cli() -> TrainConfig:
 
 def get_config(config_name: str) -> TrainConfig:
     """Get a config by name."""
+    # if config_name.startswith("pi0_fast_franka_univtac_lora"):
+    #     base_cfg = _CONFIGS_DICT['pi0_fast_franka_univtac_lora']
+    #     task_settings = config_name[len("pi0_fast_franka_univtac_lora_"):]
+    #     base_cfg.data.repo_id = f"univtac/{task_settings}"
+    #     return base_cfg
+
     if config_name not in _CONFIGS_DICT:
         closest = difflib.get_close_matches(config_name, _CONFIGS_DICT.keys(), n=1, cutoff=0.0)
         closest_str = f" Did you mean '{closest[0]}'? " if closest else ""

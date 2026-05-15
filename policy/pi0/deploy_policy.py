@@ -19,7 +19,10 @@ from pi_model import *
 
 class Policy(BasePolicy):
     def __init__(self, args):
-        self.train_config_name = args.get('train_config', 'train_config')
+        self.train_config_name = args.get('train_config_base_name', 'pi0_fast_franka_univtac_lora')
+        self.task_name = args.get('task_name', 'demo')
+        self.task_config_name = args.get('task_config_name', 'demo')
+        self.train_config_name = f"{self.train_config_name}_{self.task_name}-{self.task_config_name}-50"
         self.model_name = args.get('model_name', 'model')
         self.checkpoint_id = args.get('checkpoint_id', 'latest')
         self.pi0_step = args.get('pi0_step', 5)
