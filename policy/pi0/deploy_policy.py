@@ -1,3 +1,4 @@
+import os
 import secrets
 import socket
 import subprocess
@@ -23,7 +24,49 @@ class _RemotePI0:
         self.pi0_step = args["pi0_step"]
         self._request_id = 0
         self._closed = False
+        self._external = bool(args.get("pi0_port") or os.environ.get("PI0_PORT"))
+        self._expected_config = {
+            "train_config_name": args["train_config_name"],
+            "model_name": args["model_name"],
+            "checkpoint_id": args["checkpoint_id"],
+            "pi0_step": args["pi0_step"],
+        }
 
+        try:
+            if self._external:
+                self._connect_external(args)
+            else:
+                self._start_worker(args)
+        except Exception:
+            self.close()
+            raise
+
+    def _connect_external(self, args):
+        host = args.get("pi0_host", os.environ.get("PI0_HOST", "127.0.0.1"))
+        port = int(args.get("pi0_port", os.environ["PI0_PORT"]))
+        authkey = args.get("pi0_authkey", os.environ.get("PI0_AUTHKEY", ""))
+
+        self._process = None
+        self._sock = socket.create_connection((host, port), timeout=self.startup_timeout)
+        self._sock.settimeout(self.request_timeout)
+        send_msg(self._sock, {"type": "hello", "authkey": authkey})
+        hello = recv_msg(self._sock)
+        if hello.get("type") != "ok":
+            raise RuntimeError(f"failed to connect pi0 service: {hello}")
+
+        service_config = self._request("describe")["config"]
+        mismatches = []
+        for key, expected in self._expected_config.items():
+            actual = service_config.get(key)
+            if str(actual) != str(expected):
+                mismatches.append(f"{key}: service={actual}, eval={expected}")
+        if mismatches:
+            raise RuntimeError(
+                "connected pi0 service config does not match eval config:\n"
+                + "\n".join(mismatches)
+            )
+
+    def _start_worker(self, args):
         if not self.python.exists():
             raise FileNotFoundError(f"pi0 python not found: {self.python}")
 
@@ -57,12 +100,7 @@ class _RemotePI0:
             self._sock.settimeout(self.request_timeout)
             self._request(
                 "init",
-                config={
-                    "train_config_name": args["train_config_name"],
-                    "model_name": args["model_name"],
-                    "checkpoint_id": args["checkpoint_id"],
-                    "pi0_step": args["pi0_step"],
-                },
+                config=self._expected_config,
             )
         except Exception:
             self.close()
@@ -103,7 +141,8 @@ class _RemotePI0:
         self._closed = True
         try:
             if hasattr(self, "_sock"):
-                send_msg(self._sock, {"request_id": -1, "command": "close"})
+                command = "disconnect" if self._external else "close"
+                send_msg(self._sock, {"request_id": -1, "command": command})
                 recv_msg(self._sock)
         except Exception:
             pass
@@ -133,8 +172,8 @@ class Policy(BasePolicy):
         self.checkpoint_id = args.get('checkpoint_id', 'latest')
         self.pi0_step = args.get('pi0_step', 5)
         
-        self.visual_cameras = args.get('visual_cameras', ['head'])
-        self.tactile_cameras = args.get('tactile_cameras', ['left', 'right'])
+        self.visual_cameras = args.get('visual_cameras', ['head', 'wrist'])
+        self.tactile_cameras = args.get('tactile_cameras', [])
         self._language_set = False
 
         self.model = _RemotePI0({
