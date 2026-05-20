@@ -168,6 +168,23 @@ def _write_suc_map(task: 'BaseTask', suc_map):
         traceback.print_exc()
 
 
+
+
+def _is_x5a_motion_probe():
+    return os.environ.get("DEBUG_X5A_MOTION_PROBE", "0") == "1"
+
+
+def _safe_check_success(task: 'BaseTask'):
+    if _is_x5a_motion_probe():
+        return False
+    return task.check_success()
+
+
+def _safe_check_early_stop(task: 'BaseTask'):
+    if _is_x5a_motion_probe():
+        return False
+    return task.check_early_stop()
+
 def _safe_clean_cache(task: 'BaseTask', mean_steps: float, result: str):
     """Call task.clean_cache without letting cleanup errors hide the real failure."""
     try:
@@ -239,24 +256,14 @@ def run(task: 'BaseTask', episode_num, use_seed, start_seed, max_seed):
             print("plan_success:", getattr(task, "plan_success", None))
 
             try:
-                print("success:", task.check_success())
+                print("success:", _safe_check_success(task))
             except Exception as e:
                 print("success check error:", repr(e))
 
             try:
-                print("early_stop:", task.check_early_stop())
+                print("early_stop:", _safe_check_early_stop(task))
             except Exception as e:
                 print("early_stop check error:", repr(e))
-
-            try:
-                print("bottle pose:", task.bottle.get_pose(), flush=True)
-            except Exception as e:
-                print("bottle pose error:", repr(e), flush=True)
-
-            try:
-                print("target_pose:", task.target_pose, flush=True)
-            except Exception as e:
-                print("target_pose error:", repr(e), flush=True)
 
             try:
                 if hasattr(task, "robot") and hasattr(task.robot, "get_end_effector_pose"):
@@ -295,7 +302,12 @@ def run(task: 'BaseTask', episode_num, use_seed, start_seed, max_seed):
 
             _safe_clean_cache(task, mean_steps=mean_steps, result='error')
         else:
-            if task.plan_success and task.check_success() and not task.check_early_stop():
+            if (
+                    not _is_x5a_motion_probe()
+                    and task.plan_success
+                    and _safe_check_success(task)
+                    and not _safe_check_early_stop(task)
+                ):
                 task.save_to_hdf5()
                 log(f"[{suc_num:<3d}] Seed {seed} success in {cost_t:.2f} s.\n"
                     f"steps: {task.step_count:<5d}, save frames: {task.save_count:<5d}.\n")
@@ -308,7 +320,7 @@ def run(task: 'BaseTask', episode_num, use_seed, start_seed, max_seed):
                 _safe_clean_cache(task, mean_steps=mean_steps, result='success')
             else:
                 log(f"[{suc_num:<3d}] Seed {seed} failed in {cost_t:.2f} s.\n"
-                    f"Plan {task.plan_success}, Check {task.check_success()}, EarlyStop {task.check_early_stop()}")
+                    f"Plan {task.plan_success}, Check {_safe_check_success(task)}, EarlyStop {_safe_check_early_stop(task)}")
                 suc_map.append('0')
                 _write_suc_map(task, suc_map)
 

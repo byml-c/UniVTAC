@@ -32,8 +32,14 @@ class Task(BaseTask):
     def __init__(self, cfg: BaseTaskCfg, mode:Literal['collect', 'eval'] = 'collect', render_mode: str|None = None, **kwargs):
         super().__init__(cfg, mode, render_mode, **kwargs)
 
+    def _is_x5a(self):
+        return getattr(self._robot_manager, "robot_type", None) == "x5a"
+
     def create_actors(self):
-        stand_pose = Pose([0.7, 0.0, 0.005], [1, 0, 0, 0])
+        if self._is_x5a():
+            stand_pose = Pose([0.34, 0.0, 0.005], [1, 0, 0, 0])
+        else:
+            stand_pose = Pose([0.7, 0.0, 0.005], [1, 0, 0, 0])
         prism_pose = stand_pose.add_bias([0, 0, 0.06])
         self.stand = self._actor_manager.add_from_usd_file(
             name='stand',
@@ -54,8 +60,14 @@ class Task(BaseTask):
 
         self.move(self.atom.open_gripper(0.8))
 
-        grasp_height = 0.081+0.005*self.rng.uniform(-1, 1)
-        target_pose = self.prism.get_pose().add_bias([0.0, 0.0, grasp_height])
+        if self._is_x5a():
+            grasp_height = 0.070+0.003*self.rng.uniform(-1, 1)
+            target_pose = self.prism.get_pose().add_bias([-0.004, 0.0, grasp_height])
+            pre_dis = 0.025
+        else:
+            grasp_height = 0.081+0.005*self.rng.uniform(-1, 1)
+            target_pose = self.prism.get_pose().add_bias([0.0, 0.0, grasp_height])
+            pre_dis = 0.04
         self.metadata['grasp_height'] = grasp_height
         cpose = construct_grasp_pose(
             target_pose.p,
@@ -64,7 +76,7 @@ class Task(BaseTask):
         )
         cid = self.prism.register_point(cpose, type='contact')
         self.move(self.atom.grasp_actor(
-            self.prism, contact_point_id=cid, pre_dis=0.04, dis=0.0, is_close=False
+            self.prism, contact_point_id=cid, pre_dis=pre_dis, dis=0.0, is_close=False
         ))
 
         if self.cfg.tactile_sensor_type == 'gsmini':
@@ -78,12 +90,19 @@ class Task(BaseTask):
             self.move(self.atom.close_gripper(pos=grasp_qpos))
             self.metadata['grasp_qpos'] = grasp_qpos
         elif self.cfg.tactile_sensor_type == 'xensews':
-            grasp_qpos = np.random.uniform(0.0118, 0.013) / self._robot_manager.gripper_max_qpos
+            if self._is_x5a():
+                grasp_qpos = self.rng.uniform(0.0030, 0.0040) / self._robot_manager.gripper_max_qpos
+            else:
+                grasp_qpos = np.random.uniform(0.0118, 0.013) / self._robot_manager.gripper_max_qpos
             self.move(self.atom.close_gripper(pos=grasp_qpos))
+            self.metadata['grasp_qpos'] = grasp_qpos
         self.cfg.keep_contact = True
 
     def _play_once(self):
-        rotate = self.rng.choice([-1, 1]) * self.rng.uniform(np.pi/3, np.pi*7/18)
+        if self._is_x5a():
+            rotate = self.rng.choice([-1, 1]) * self.rng.uniform(np.pi/6, np.pi*2/9)
+        else:
+            rotate = self.rng.choice([-1, 1]) * self.rng.uniform(np.pi/3, np.pi*7/18)
         sub_rotate_num = int(np.ceil(np.abs(rotate / 0.2)))
         sub_rotate = rotate / sub_rotate_num
         for r in range(sub_rotate_num):

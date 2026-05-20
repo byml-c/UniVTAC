@@ -182,13 +182,13 @@ def create_x5a_xensews_gripper(data_type: list[str]):
             joint_pos={
                 # 6-DoF X5A arm.
                 "x5a_joint1": 0,
-                "x5a_joint2": 0,
-                "x5a_joint3": 0,
-                "x5a_joint4": 0,
+                "x5a_joint2": 0.25,
+                "x5a_joint3": 0.44,
+                "x5a_joint4": -0.25,
                 "x5a_joint5": 0,
                 "x5a_joint6": 0,
-                "x5a_adapter_left_mount": 0.04,
-                "x5a_adapter_right_mount": 0.04,
+                "x5a_adapter_left_mount": 0.02,
+                "x5a_adapter_right_mount": 0.02,
             }
         ),
     )
@@ -221,7 +221,7 @@ def create_x5a_xensews_gripper(data_type: list[str]):
         tactiles=tactiles,
         # Approximate offset from x5a_link6 to the grasp center.
         # Recalibrate this after the final x5a_link6_to_adapter and mount origins are fixed.
-        gripper_offset=0.16,
+        gripper_offset=0.17,
         # Matches the URDF prismatic joint upper limit.
         gripper_max_qpos=0.04,
         tactile_far_plane=29.0,

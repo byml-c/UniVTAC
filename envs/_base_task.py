@@ -72,6 +72,9 @@ from .sensors.camera import CameraManager, CameraCfg
 from .sensors.tactile import TactileManager, TactileCfg, create_tactile_cfg
 
 
+SIM_FPS = 30
+
+
 @configclass
 class BaseTaskCfg(DirectRLEnvCfg):
     logger_level = "error"
@@ -97,7 +100,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
     decimation = 1
     # simulation
     sim: SimulationCfg = SimulationCfg(
-        dt=1/120,
+        dt=1/SIM_FPS,
         render_interval=decimation,
         # device="cpu",
         physx=PhysxCfg(
@@ -171,7 +174,7 @@ class BaseTaskCfg(DirectRLEnvCfg):
             ),
             width=480,
             height=270,
-            update_period=1/120
+            update_period=1/SIM_FPS
         ),
         CameraCfg(
             name="wrist",
@@ -180,12 +183,12 @@ class BaseTaskCfg(DirectRLEnvCfg):
             spawn=None, # use existing camera
             width=480,
             height=270,
-            update_period=1/120,
+            update_period=1/SIM_FPS,
         )
     ]
 
     robot: RobotCfg = None
-    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'gsmini'
+    tactile_sensor_type:Literal['gsmini', 'xensews', 'gf225'] = 'xensews'
 
     planner_time_dilation_factor: float = 1.0
 
@@ -255,7 +258,7 @@ class BaseTask(UipcRLEnv):
         elif cfg.tactile_sensor_type == 'gf225':
             cfg.robot = create_franka_gf225_gripper(data_type=data_type)
         elif cfg.tactile_sensor_type == 'xensews':
-            cfg.robot = create_franka_xensews_gripper(data_type=data_type)
+            cfg.robot = create_x5a_xensews_gripper(data_type=data_type)
         else:
             raise ValueError(f'Unknown tactile sensor type: {cfg.tactile_sensor_type}')
         

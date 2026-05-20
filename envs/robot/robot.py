@@ -80,9 +80,7 @@ class RobotManager:
 
         if self.robot_type == 'x5a':
             q_offset = [1, 0, 0, 0]
-            # x5a_offset_p = [-0.160, -0.0005, -0.0245] # insert_hole *0.9
-            # x5a_offset_p = [-0.158, -0.0005, -0.012] # insert_tube *0.7
-            x5a_offset_p = [-0.21, -0.0005, -0.0015] # insert_tube *0.8
+            x5a_offset_p = [-offset,0.0, 0.0] 
  
             self._offset = Pose(
                 p=x5a_offset_p,
@@ -114,7 +112,7 @@ class RobotManager:
             return tcp_pose
 
         x5a_grasp_frame_fix = Pose(
-            p=[0.0, 0.0, 0.0],
+            p=[-0.013, 0.006, -0.05],
             q=[0.7071, 0.0, 0.7071, 0.0],
         )
         tcp_pose = tcp_pose.add_offset(x5a_grasp_frame_fix)
@@ -270,10 +268,38 @@ class RobotManager:
             target_pos = self.gripper_percent2qpos(pos)
         else:
             target_pos = pos
+
         gripper_pos = self.robot.data.joint_pos[0, self._gripper_ids][0]
-        num_steps = np.ceil(abs(target_pos - gripper_pos.cpu().item()) / 0.0005).astype(int)
+        delta = abs(target_pos - gripper_pos.cpu().item())
+
+        # Tunable gripper speed. The old hard-coded values were:
+        #   qpos_step = 0.0005
+        #   velocity_limit = 0.0001
+        # For X5A can grasping this can be too slow; close_gripper may spend
+        # many simulation frames before reaching a useful contact force.
+        qpos_step = float(getattr(self.task.cfg, "gripper_qpos_step", 0.0005))
+        velocity_limit = float(getattr(self.task.cfg, "gripper_velocity_limit", 0.0001))
+        qpos_step = max(qpos_step, 1e-6)
+        velocity_limit = max(velocity_limit, 1e-8)
+
+        num_steps = max(2, np.ceil(delta / qpos_step).astype(int))
         position = torch.linspace(gripper_pos, target_pos, num_steps, device=self.device)
-        velocity = torch.clip((position - gripper_pos)/self.task.cfg.sim.dt, -0.0001, 0.0001)
+        velocity = torch.clip(
+            (position - gripper_pos) / self.task.cfg.sim.dt,
+            -velocity_limit,
+            velocity_limit,
+        )
+
+        print(
+            "[DEBUG PLAN_GRIPPER]",
+            "target_pos=", float(target_pos),
+            "current_pos=", float(gripper_pos.cpu().item()),
+            "delta=", float(delta),
+            "qpos_step=", qpos_step,
+            "velocity_limit=", velocity_limit,
+            "num_steps=", int(num_steps),
+            flush=True,
+        )
 
         return {
             'status': 'Success',

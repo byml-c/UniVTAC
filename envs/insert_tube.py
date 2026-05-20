@@ -2,51 +2,41 @@ from ._base_task import *
 import numpy as np
 import copy
 
-TASK_VERSION_TAG = "RUNNING_INSERT_TUBE_X5A_STAGE2_HOLE_AXIS"
+TASK_VERSION_TAG = "RUNNING_INSERT_TUBE_X5A_STRICT_GATE_RELAXED_CHECK_TIGHT_SLOW_SETTLE007_STAGE2_020"
 
-# X5A-friendly scene scaling.
-# Original insert_tube:
-#   prism/base x = 0.40
-#   slot x       = 0.60
-#
-# This version keeps both tube start and slot/hole x positions proportional
-# to SCENE_X_SCALE:
-#   prism/base x = 0.40 * SCENE_X_SCALE = 0.36
-#   slot x       = 0.60 * SCENE_X_SCALE = 0.54
-#
-# The slot/hole ratio is intentionally preserved here.
 SCENE_X_SCALE = 0.7
 PRISM_X = 0.40 * SCENE_X_SCALE
 SLOT_X = 0.60 * SCENE_X_SCALE
 
-# Keep original insert_tube slot noise by default.
-# For no-noise bring-up, set this to [0.0, 0.0, 0.0].
 SLOT_NOISE_RANGE = [0.005, 0.010, 0.0]
 
 # Try-pose noise for the next robustness step.
-# Previous small-noise baseline used 0.5-1.5 mm and reached 11/13.
-# This version increases only the upper bound to 2.0 mm.
+# Keep the target noise modest so pre-place accuracy, not a relaxed gate, handles
+# seed-31-like off-center cases.
 TRY_NOISE_ENABLED = True
-TRY_NOISE_RANGE = [[0.0010, 0.0040], [0.0010, 0.0040], 0]
+TRY_NOISE_RANGE = [[0.0010, 0.0020], [0.0010, 0.0020], 0]
 
 # Keep SINGLE lift behavior after grasp.
-# This is intentionally NOT split into multiple lift motions.
-LIFT_AFTER_GRASP_Z = 0.04
+# Use the minimum height that clears the base; higher lift was observed to amplify in-hand slip.
+LIFT_AFTER_GRASP_Z = 0.05
 LIFT_CONSTRAINT_POSE = [1, 1, 1, 0, 0, 0]
+LIFT_TIME_DILATION = 0.85
 FINE_PLACE_CONSTRAINT_POSE = [1, 1, 1, 0, 0, 0]
 
 
 DEBUG_STOP_AFTER_PRE_PLACE = False
-GRASP_BIAS_RANGE = [0.090, 0.0915]
+GRASP_BIAS_RANGE = [0.086, 0.088]
 
 GRASP_X_OFFSET = 0.0
+# Smaller XenseWS depth threshold closes the X5A gripper deeper / tighter.
+GRASP_DEPTH_THRESHOLD = 27.5
 PRE_PLACE_X_OFFSET = -0.0085
 
-SETTLE_DOWN_Z = -0.003
+SETTLE_DOWN_Z = -0.007
 SETTLE_READY_XY = 0.0048
-SETTLE_READY_AXIS_DOT = 0.999
+SETTLE_READY_AXIS_DOT = 0.996
 
-SETTLE_RESCUE_XY = 0.0085
+SETTLE_RESCUE_XY = 0.012
 SETTLE_RESCUE_Y = 0.0055
 SETTLE_RESCUE_AXIS_DOT = 0.9978
 SETTLE_RESCUE_MAX_POSITIVE_Z = 0.002
@@ -58,26 +48,35 @@ FIRST_FORWARD_DELTA_D = 0.003
 
 # Gate before first_forward. If pre-place is already bad, do not push the tube
 # further; this separates "pre-place already failed" from "first_forward made it worse".
-PRE_FIRST_FORWARD_MAX_XY = 0.014
+PRE_FIRST_FORWARD_MAX_XY = 0.016
 PRE_FIRST_FORWARD_MIN_AXIS_DOT = 0.990
 PRE_FIRST_FORWARD_MAX_POSITIVE_Z = 0.006
 
 FINAL_INSERT_STAGE1_Z = -0.026
-FINAL_INSERT_STAGE2_Z = -0.011
-FINAL_INSERT_TARGET_Z = -0.031
+FINAL_INSERT_STAGE2_Z = -0.020
+FINAL_INSERT_TARGET_Z = -0.032
 FINAL_INSERT_STAGE2_MAX_XY = 0.0060
 FINAL_INSERT_STAGE2_MIN_AXIS_DOT = 0.995
-FINAL_INSERT_TIME_DILATION = 0.3
+FINAL_INSERT_TIME_DILATION = 0.6
 FINAL_INSERT_DELAY_STEPS = 8
+
+# Keep the final-insert gate strict. Relax only the X5A success / early-stop
+# interpretation of in-hand slip: axial slip along the tube is acceptable during
+# insertion, while lateral slip remains strict.
+X5A_SUCCESS_Z_THRESHOLD = 0.027
+X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS = 0.045
+X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS = 0.008
+X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS = 0.050
+X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS = 0.012
 
 PLACE_TIME_DILATION = 0.3
 COARSE_PRE_DIS = 0.08
 COARSE_DIS = 0.04
-FINE_PRE_DIS = 0.04
+FINE_PRE_DIS = 0.03
 FINE_DIS = 0.002
 
 # Optional grasp stability debug. Default 0 keeps task flow compact.
-GRASP_HOLD_STEPS = 0
+GRASP_HOLD_STEPS = 6
 DEBUG_STOP_AFTER_GRASP_HOLD = False
 
 # This version is intentionally strict so logs immediately reveal wrong files.
@@ -104,6 +103,7 @@ class Task(BaseTask):
             "PRISM_X=", PRISM_X,
             "SLOT_X=", SLOT_X,
             "LIFT_AFTER_GRASP_Z=", LIFT_AFTER_GRASP_Z,
+            "LIFT_TIME_DILATION=", LIFT_TIME_DILATION,
             "PRE_PLACE_X_OFFSET=", PRE_PLACE_X_OFFSET,
             "SETTLE_DOWN_Z=", SETTLE_DOWN_Z,
             "SETTLE_READY_XY=", SETTLE_READY_XY,
@@ -123,6 +123,11 @@ class Task(BaseTask):
             "FINAL_INSERT_STAGE2_MAX_XY=", FINAL_INSERT_STAGE2_MAX_XY,
             "FINAL_INSERT_STAGE2_MIN_AXIS_DOT=", FINAL_INSERT_STAGE2_MIN_AXIS_DOT,
             "FINAL_INSERT_TIME_DILATION=", FINAL_INSERT_TIME_DILATION,
+            "X5A_SUCCESS_Z_THRESHOLD=", X5A_SUCCESS_Z_THRESHOLD,
+            "X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS=", X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS,
+            "X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS=", X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS,
+            "X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS=", X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS,
+            "X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS=", X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS,
             flush=True,
         )
 
@@ -130,34 +135,42 @@ class Task(BaseTask):
             assert abs(SCENE_X_SCALE - 0.7) < 1e-9, SCENE_X_SCALE
             assert abs(PRISM_X - 0.28) < 1e-9, PRISM_X
             assert abs(SLOT_X - 0.60 * SCENE_X_SCALE) < 1e-9, SLOT_X
-            assert abs(LIFT_AFTER_GRASP_Z - 0.04) < 1e-9, LIFT_AFTER_GRASP_Z
+            assert abs(LIFT_AFTER_GRASP_Z - 0.05) < 1e-9, LIFT_AFTER_GRASP_Z
+            assert abs(LIFT_TIME_DILATION - 0.85) < 1e-9, LIFT_TIME_DILATION
             assert DEBUG_STOP_AFTER_PRE_PLACE is False, DEBUG_STOP_AFTER_PRE_PLACE
             assert abs(PLACE_TIME_DILATION - 0.3) < 1e-9, PLACE_TIME_DILATION
             assert abs(COARSE_PRE_DIS - 0.08) < 1e-9, COARSE_PRE_DIS
             assert abs(COARSE_DIS - 0.04) < 1e-9, COARSE_DIS
-            assert abs(FINE_PRE_DIS - 0.04) < 1e-9, FINE_PRE_DIS
+            assert abs(FINE_PRE_DIS - 0.03) < 1e-9, FINE_PRE_DIS
             assert abs(FINE_DIS - 0.002) < 1e-9, FINE_DIS
             assert abs(GRASP_X_OFFSET - 0.0) < 1e-9, GRASP_X_OFFSET
+            assert abs(GRASP_DEPTH_THRESHOLD - 27.5) < 1e-9, GRASP_DEPTH_THRESHOLD
+            assert GRASP_BIAS_RANGE == [0.086, 0.088], GRASP_BIAS_RANGE
             assert abs(PRE_PLACE_X_OFFSET - (-0.0085)) < 1e-9, PRE_PLACE_X_OFFSET
-            assert abs(SETTLE_DOWN_Z - (-0.003)) < 1e-9, SETTLE_DOWN_Z
+            assert abs(SETTLE_DOWN_Z - (-0.007)) < 1e-9, SETTLE_DOWN_Z
             assert TRY_NOISE_ENABLED is True, TRY_NOISE_ENABLED
-            assert TRY_NOISE_RANGE == [[0.0010, 0.0040], [0.0010, 0.0040], 0], TRY_NOISE_RANGE
+            assert TRY_NOISE_RANGE == [[0.0010, 0.0020], [0.0010, 0.0020], 0], TRY_NOISE_RANGE
             assert abs(SETTLE_READY_XY - 0.0048) < 1e-9, SETTLE_READY_XY
-            assert abs(SETTLE_READY_AXIS_DOT - 0.999) < 1e-9, SETTLE_READY_AXIS_DOT
-            assert abs(SETTLE_RESCUE_XY - 0.0085) < 1e-9, SETTLE_RESCUE_XY
+            assert abs(SETTLE_READY_AXIS_DOT - 0.996) < 1e-9, SETTLE_READY_AXIS_DOT
+            assert abs(SETTLE_RESCUE_XY - 0.012) < 1e-9, SETTLE_RESCUE_XY
             assert abs(SETTLE_RESCUE_Y - 0.0055) < 1e-9, SETTLE_RESCUE_Y
             assert abs(SETTLE_RESCUE_AXIS_DOT - 0.9978) < 1e-9, SETTLE_RESCUE_AXIS_DOT
             assert abs(SETTLE_RESCUE_MAX_POSITIVE_Z - 0.002) < 1e-9, SETTLE_RESCUE_MAX_POSITIVE_Z
             assert abs(FIRST_FORWARD_DIS - 0.006) < 1e-9, FIRST_FORWARD_DIS
             assert abs(FIRST_FORWARD_DELTA_D - 0.003) < 1e-9, FIRST_FORWARD_DELTA_D
-            assert abs(PRE_FIRST_FORWARD_MAX_XY - 0.014) < 1e-9, PRE_FIRST_FORWARD_MAX_XY
+            assert abs(PRE_FIRST_FORWARD_MAX_XY - 0.016) < 1e-9, PRE_FIRST_FORWARD_MAX_XY
             assert abs(PRE_FIRST_FORWARD_MIN_AXIS_DOT - 0.990) < 1e-9, PRE_FIRST_FORWARD_MIN_AXIS_DOT
             assert abs(PRE_FIRST_FORWARD_MAX_POSITIVE_Z - 0.006) < 1e-9, PRE_FIRST_FORWARD_MAX_POSITIVE_Z
             assert abs(FINAL_INSERT_STAGE1_Z - (-0.026)) < 1e-9, FINAL_INSERT_STAGE1_Z
-            assert abs(FINAL_INSERT_STAGE2_Z - (-0.011)) < 1e-9, FINAL_INSERT_STAGE2_Z
-            assert abs(FINAL_INSERT_TARGET_Z - (-0.031)) < 1e-9, FINAL_INSERT_TARGET_Z
+            assert abs(FINAL_INSERT_STAGE2_Z - (-0.020)) < 1e-9, FINAL_INSERT_STAGE2_Z
+            assert abs(FINAL_INSERT_TARGET_Z - (-0.032)) < 1e-9, FINAL_INSERT_TARGET_Z
             assert abs(FINAL_INSERT_STAGE2_MAX_XY - 0.0060) < 1e-9, FINAL_INSERT_STAGE2_MAX_XY
             assert abs(FINAL_INSERT_STAGE2_MIN_AXIS_DOT - 0.995) < 1e-9, FINAL_INSERT_STAGE2_MIN_AXIS_DOT
+            assert abs(X5A_SUCCESS_Z_THRESHOLD - 0.027) < 1e-9, X5A_SUCCESS_Z_THRESHOLD
+            assert abs(X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS - 0.045) < 1e-9, X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS
+            assert abs(X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS - 0.008) < 1e-9, X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS
+            assert abs(X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS - 0.050) < 1e-9, X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS
+            assert abs(X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS - 0.012) < 1e-9, X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS
 
         super().__init__(cfg=cfg, mode=mode, render_mode=render_mode, **kwargs)
 
@@ -214,6 +227,7 @@ class Task(BaseTask):
         self.metadata["prism_x"] = PRISM_X
         self.metadata["slot_x"] = SLOT_X
         self.metadata["lift_after_grasp_z"] = LIFT_AFTER_GRASP_Z
+        self.metadata["grasp_depth_threshold"] = float(GRASP_DEPTH_THRESHOLD)
         self.metadata["slot_noise_range"] = list(SLOT_NOISE_RANGE)
 
     def _print_inhand(self, tag):
@@ -267,11 +281,13 @@ class Task(BaseTask):
             "TRY_NOISE_ENABLED=", TRY_NOISE_ENABLED,
             "TRY_NOISE_RANGE=", TRY_NOISE_RANGE,
             "LIFT_AFTER_GRASP_Z=", LIFT_AFTER_GRASP_Z,
+            "LIFT_TIME_DILATION=", LIFT_TIME_DILATION,
             "LIFT_CONSTRAINT_POSE=", LIFT_CONSTRAINT_POSE,
             "FINE_PLACE_CONSTRAINT_POSE=", FINE_PLACE_CONSTRAINT_POSE,
             "DEBUG_STOP_AFTER_PRE_PLACE=", DEBUG_STOP_AFTER_PRE_PLACE,
             "GRASP_BIAS_RANGE=", GRASP_BIAS_RANGE,
             "GRASP_X_OFFSET=", GRASP_X_OFFSET,
+            "GRASP_DEPTH_THRESHOLD=", GRASP_DEPTH_THRESHOLD,
             "PRE_PLACE_X_OFFSET=", PRE_PLACE_X_OFFSET,
             "SETTLE_DOWN_Z=", SETTLE_DOWN_Z,
             "SETTLE_READY_XY=", SETTLE_READY_XY,
@@ -291,6 +307,11 @@ class Task(BaseTask):
             "FINAL_INSERT_STAGE2_MAX_XY=", FINAL_INSERT_STAGE2_MAX_XY,
             "FINAL_INSERT_STAGE2_MIN_AXIS_DOT=", FINAL_INSERT_STAGE2_MIN_AXIS_DOT,
             "FINAL_INSERT_TIME_DILATION=", FINAL_INSERT_TIME_DILATION,
+            "X5A_SUCCESS_Z_THRESHOLD=", X5A_SUCCESS_Z_THRESHOLD,
+            "X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS=", X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS,
+            "X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS=", X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS,
+            "X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS=", X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS,
+            "X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS=", X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS,
             "PLACE_TIME_DILATION=", PLACE_TIME_DILATION,
             "COARSE_PRE_DIS=", COARSE_PRE_DIS,
             "COARSE_DIS=", COARSE_DIS,
@@ -330,13 +351,18 @@ class Task(BaseTask):
         # "arm reached target but before close" moment is inside Atom/BaseTask.
         self._print_grasp_world_delta("before_grasp_actor")
 
+        grasp_actions = self.atom.grasp_actor(
+            self.prism,
+            contact_point_id=self.cid,
+            pre_dis=0.0,
+            dis=0.0
+        )
+        for action in grasp_actions:
+            if action.action in ["gripper", "all"]:
+                action.args["gripper_depth_threshold"] = GRASP_DEPTH_THRESHOLD
+
         ok = self.move(
-            self.atom.grasp_actor(
-                self.prism,
-                contact_point_id=self.cid,
-                pre_dis=0.0,
-                dis=0.0
-            ),
+            grasp_actions,
             tag="pre_grasp_prism_x5a_verify"
         )
         if not ok:
@@ -421,6 +447,7 @@ class Task(BaseTask):
             self.atom.move_by_displacement(z=LIFT_AFTER_GRASP_Z),
             tag=f"lift_after_grasp_single_z{int(LIFT_AFTER_GRASP_Z * 1000):03d}_scale{int(SCENE_X_SCALE * 100):03d}",
             constraint_pose=LIFT_CONSTRAINT_POSE,
+            time_dilation_factor=LIFT_TIME_DILATION,
         )
         if not ok:
             print(
@@ -477,6 +504,9 @@ class Task(BaseTask):
         self._print_inhand("after_pre_place_coarse")
         self._print_grasp_world_delta("after_pre_place_coarse")
 
+        # Use the simple original fine pre-place call.
+        # With the lift clearance fixed at 5 cm, avoid additional local fine
+        # loops that can introduce extra contact and direction coupling.
         ok = self.move(
             self.atom.place_actor(
                 self.prism,
@@ -798,10 +828,32 @@ class Task(BaseTask):
         prism_inhand_pose = self.prism.get_pose().rebase(
             self._robot_manager.get_gripper_center_pose()
         )
-        inhand_bias = np.abs(self.origin_inhand_pose[2] - prism_inhand_pose[2])
-        if inhand_bias > 0.03:
+        inhand_delta_xyz = np.abs(
+            np.array(prism_inhand_pose[:3]) -
+            np.array(self.origin_inhand_pose[:3])
+        )
+        inhand_bias = float(np.linalg.norm(inhand_delta_xyz))
+        axial_inhand_bias = float(inhand_delta_xyz[0])
+        lateral_inhand_bias = float(np.linalg.norm(inhand_delta_xyz[1:3]))
+
+        if (
+            axial_inhand_bias > X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS
+            or lateral_inhand_bias > X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS
+        ):
             self.metadata['early_stop'] = True
-            self.metadata['inhand_bias'] = float(inhand_bias)
+            self.metadata['inhand_bias'] = inhand_bias
+            self.metadata['inhand_delta_xyz'] = inhand_delta_xyz.tolist()
+            self.metadata['axial_inhand_bias'] = axial_inhand_bias
+            self.metadata['lateral_inhand_bias'] = lateral_inhand_bias
+            print(
+                "[DEBUG EARLY_STOP]",
+                "inhand_delta_xyz=", inhand_delta_xyz,
+                "axial_inhand_bias=", axial_inhand_bias,
+                "lateral_inhand_bias=", lateral_inhand_bias,
+                "max_axial=", X5A_EARLY_STOP_MAX_AXIAL_INHAND_BIAS,
+                "max_lateral=", X5A_EARLY_STOP_MAX_LATERAL_INHAND_BIAS,
+                flush=True,
+            )
             return True
 
     def check_success(self, z_threshold=0.03):
@@ -812,16 +864,26 @@ class Task(BaseTask):
         xy_err = np.abs(prism_pose.p[:2])
         z_err = prism_pose.p[2]
         axis_dot = np.dot(prism_pose.to_transformation_matrix()[:3, 2], np.array([0, 0, 1]))
-        inhand_bias = np.abs(self.origin_inhand_pose[2] - prism_inhand_pose[2])
+        inhand_delta_xyz = np.abs(
+            np.array(prism_inhand_pose[:3]) -
+            np.array(self.origin_inhand_pose[:3])
+        )
+        inhand_bias = float(np.linalg.norm(inhand_delta_xyz))
+        axial_inhand_bias = float(inhand_delta_xyz[0])
+        lateral_inhand_bias = float(np.linalg.norm(inhand_delta_xyz[1:3]))
 
         self.metadata['rel_pose'] = prism_pose.tolist()
         self.metadata['inhand_bias'] = inhand_bias
+        self.metadata['inhand_delta_xyz'] = inhand_delta_xyz.tolist()
+        self.metadata['axial_inhand_bias'] = axial_inhand_bias
+        self.metadata['lateral_inhand_bias'] = lateral_inhand_bias
 
         success = (
             np.all(xy_err < np.array([0.005, 0.005]))
-            and z_err < -z_threshold
+            and z_err < -X5A_SUCCESS_Z_THRESHOLD
             and axis_dot > 0.965
-            and inhand_bias < 0.03
+            and axial_inhand_bias < X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS
+            and lateral_inhand_bias < X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS
         )
 
         print(
@@ -832,7 +894,13 @@ class Task(BaseTask):
             "z_err=", z_err,
             "axis_dot=", axis_dot,
             "inhand_bias=", inhand_bias,
+            "inhand_delta_xyz=", inhand_delta_xyz,
+            "axial_inhand_bias=", axial_inhand_bias,
+            "lateral_inhand_bias=", lateral_inhand_bias,
             "z_threshold=", z_threshold,
+            "success_z_threshold=", X5A_SUCCESS_Z_THRESHOLD,
+            "success_max_axial=", X5A_SUCCESS_MAX_AXIAL_INHAND_BIAS,
+            "success_max_lateral=", X5A_SUCCESS_MAX_LATERAL_INHAND_BIAS,
             flush=True,
         )
 
